@@ -4,10 +4,10 @@ const Sidebar = () => {
       {/* Perfil */}
       <div className="flex items-center gap-4 p-2">
         <div className="w-12 h-12 bg-[#4A236D] rounded-full flex items-center justify-center text-lg font-bold shadow-lg shadow-purple-900/50">
-          P
+          A
         </div>
         <div className="flex flex-col">
-          <span className="font-bold text-lg leading-tight">Pedro Manuel</span>
+          <span className="font-bold text-lg leading-tight">Admin</span>
           <span className="text-xs text-gray-400">Administrador</span>
         </div>
       </div>

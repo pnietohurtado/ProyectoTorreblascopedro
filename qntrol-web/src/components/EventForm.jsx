@@ -50,7 +50,7 @@ const EventForm = ({ onCancel }) => {
                       <img src={excelIcon} alt="Excel" className="w-full h-full object-contain" />
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-xs font-semibold text-gray-300 group-hover:text-white">Lista de invitados (Opcional)</span>
+                      <span className="text-xs font-semibold text-gray-300 group-hover:text-white">Lista de invitados</span>
                       <span className="text-[10px] text-gray-500">Sube un archivo .xlsx o .csv</span>
                     </div>
                   </div>
