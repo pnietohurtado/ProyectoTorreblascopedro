@@ -1,8 +1,34 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Button from './Button';
 import excelIcon from '../assets/excel-icon.png';
 
-const EventForm = ({ onCancel }) => {
+const EventForm = ({ onSave, onCancel }) => {
+  const [title, setTitle] = useState('');
+  const [address, setAddress] = useState('');
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+
+  const handleSubmit = () => {
+    // Validate inputs roughly
+    if (!title || !date) {
+      alert('Por favor rellena al menos el título y la fecha.');
+      return;
+    }
+
+    // Format date string as requested "DD/MM/YYYY - HH:mmh"
+    // Note: input date gives YYYY-MM-DD
+    const dateObj = new Date(date + 'T' + (time || '00:00'));
+    const formattedDate = dateObj.toLocaleDateString('es-ES') + ' - ' + (time ? time + 'h' : '');
+
+    const newEvent = {
+      title,
+      address,
+      date: formattedDate // Using the formatted string for display simplicity
+    };
+
+    onSave(newEvent);
+  };
+
   return (
     <div className="flex-1 p-10 flex flex-col h-full overflow-hidden text-left">
       <div className="bg-[#0f0f1b] rounded-3xl max-w-5xl w-full mx-auto shadow-2xl flex flex-col overflow-hidden max-h-full border border-white/5">
@@ -25,22 +51,44 @@ const EventForm = ({ onCancel }) => {
             <div className="flex-1 grid grid-cols-2 gap-6">
               <div className="col-span-2 flex flex-col gap-2">
                 <label className="text-gray-300 text-sm font-medium ml-1">Nombre</label>
-                <input type="text" className="bg-[#1e1b2e] border-none p-4 rounded-xl focus:ring-1 focus:ring-[#7738B0] outline-none transition-all placeholder:text-gray-600 text-white" placeholder="" />
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="bg-[#1e1b2e] border-none p-4 rounded-xl focus:ring-1 focus:ring-[#7738B0] outline-none transition-all placeholder:text-gray-600 text-white"
+                  placeholder="Ej: Graduación..."
+                />
               </div>
 
               <div className="col-span-2 flex flex-col gap-2">
                 <label className="text-gray-300 text-sm font-medium ml-1">Dirección</label>
-                <input type="text" className="bg-[#1e1b2e] border-none p-4 rounded-xl focus:ring-1 focus:ring-[#7738B0] outline-none transition-all placeholder:text-gray-600 text-white" placeholder="" />
+                <input
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="bg-[#1e1b2e] border-none p-4 rounded-xl focus:ring-1 focus:ring-[#7738B0] outline-none transition-all placeholder:text-gray-600 text-white"
+                  placeholder="Ej: Calle Principal 123"
+                />
               </div>
 
               <div className="flex flex-col gap-2">
                 <label className="text-gray-300 text-sm font-medium ml-1">Fecha</label>
-                <input type="date" className="bg-[#1e1b2e] border-none p-4 rounded-xl text-gray-300 focus:ring-1 focus:ring-[#7738B0] outline-none transition-all" />
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="bg-[#1e1b2e] border-none p-4 rounded-xl text-gray-300 focus:ring-1 focus:ring-[#7738B0] outline-none transition-all"
+                />
               </div>
 
               <div className="flex flex-col gap-2">
                 <label className="text-gray-300 text-sm font-medium ml-1">Hora</label>
-                <input type="time" className="bg-[#1e1b2e] border-none p-4 rounded-xl text-gray-300 focus:ring-1 focus:ring-[#7738B0] outline-none transition-all" />
+                <input
+                  type="time"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                  className="bg-[#1e1b2e] border-none p-4 rounded-xl text-gray-300 focus:ring-1 focus:ring-[#7738B0] outline-none transition-all"
+                />
               </div>
 
               <div className="col-span-2 mt-2">
@@ -58,7 +106,9 @@ const EventForm = ({ onCancel }) => {
               </div>
 
               <div className="col-span-2 mt-8 flex flex-col gap-3">
-                <Button className="w-full py-3.5 text-lg shadow-lg shadow-purple-900/20 font-semibold tracking-wide">Crear evento</Button>
+                <Button onClick={handleSubmit} className="w-full py-3.5 text-lg shadow-lg shadow-purple-900/20 font-semibold tracking-wide">
+                  Crear evento
+                </Button>
                 <button onClick={onCancel} className="w-full py-3 text-gray-400 hover:text-white transition-colors text-sm font-medium hover:bg-white/5 rounded-xl">Cancelar</button>
               </div>
             </div>
