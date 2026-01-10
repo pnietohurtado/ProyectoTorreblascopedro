@@ -1,17 +1,58 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import fondo from '../img/fondo.jpg';
 import logoImg from '../img/LogoQNTROL_3.png';
+import { doSignInWithEmailAndPassword, doSignInWithGoogle } from '../firebase/auth';
+import { useAuth } from '../contexts/authContext'; 
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { currentUser } = useAuth(); 
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log({ email, password, rememberMe });
+    setError('');
+    setLoading(true);
+    
+    try {
+      await doSignInWithEmailAndPassword(email, password);
+      console.log('Login exitoso');
+    } catch (error) {
+      console.error('Error en login:', error);
+      setError(error.message || 'Error al iniciar sesión. Verifica tus credenciales.');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const onGoogleSignIn = async (e) => {
+    e.preventDefault();
+    setError('/');
+    setLoading(true);
+    
+    try {
+      await doSignInWithGoogle();
+      console.log('Login con Google exitoso');
+      navigate('/');
+    } catch (error) {
+      console.error('Error en login con Google:', error);
+      setError(error.message || 'Error al iniciar sesión con Google.');
+      setLoading(false);
+    }
+  };
+
+  // Verificar si ya está autenticado
+  React.useEffect(() => {
+    if (currentUser) {
+      navigate('/');
+    }
+  }, [currentUser, navigate]);
+
 
   return (
     <div style={styles.container}>

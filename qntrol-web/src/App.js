@@ -1,21 +1,33 @@
 import './App.css';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useState } from 'react';
-// Importamos los componentes desde la carpeta components
 import Layout from './components/Layout';
 import EventList from './components/EventList';
 import EventForm from './components/EventForm';
 import Login from './components/Login';
 import Register from './components/Register';
+import { AuthProvider, useAuth } from './contexts/authContext';
 import './index.css';
+import { useNavigate } from 'react-router-dom';
 
-// Wrapper para EventList que maneja la navegación
+
+
+const PrivateRoute = ({ children }) => {
+  const { currentUser, loading } = useAuth();
+  
+  if (loading) {
+    return <div>Cargando...</div>; 
+  }
+  
+  return currentUser ? children : <Navigate to="/login" />;
+};
+
+
 const EventListWrapper = ({ events }) => {
   const navigate = useNavigate();
   return <EventList events={events} onCreateClick={() => navigate('/create')} />;
 };
 
-// Wrapper para EventForm que maneja la navegación
 const EventFormWrapper = ({ onAddEvent }) => {
   const navigate = useNavigate();
   const handleSave = (newEvent) => {
@@ -25,7 +37,8 @@ const EventFormWrapper = ({ onAddEvent }) => {
   return <EventForm onSave={handleSave} onCancel={() => navigate('/')} />;
 };
 
-function App() {
+
+function AppContent() {
   const [events, setEvents] = useState([]);
 
   const handleAddEvent = (eventData) => {
@@ -42,24 +55,39 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Rutas protegidas (por ahora sin autenticación real) dentro del Layout */}
+        {/* Rutas protegidas */}
         <Route path="/" element={
-          <Layout>
-            <EventListWrapper events={events} />
-          </Layout>
+          <PrivateRoute>
+            <Layout>
+              <EventListWrapper events={events} />
+            </Layout>
+          </PrivateRoute>
         } />
 
         <Route path="/create" element={
-          <Layout>
-            <EventFormWrapper onAddEvent={handleAddEvent} />
-          </Layout>
+          <PrivateRoute>
+            <Layout>
+              <EventFormWrapper onAddEvent={handleAddEvent} />
+            </Layout>
+          </PrivateRoute>
         } />
 
         {/* Redirección por defecto */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );
 }
+
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
+
+
 
 export default App;

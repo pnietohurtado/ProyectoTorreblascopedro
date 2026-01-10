@@ -1,23 +1,87 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import fondo from '../img/fondo.jpg';
 import logoImg from '../img/LogoQNTROL_3.png';
+import { doCreateUserWithEmailAndPassword, doSignInWithGoogle } from '../firebase/auth';
+import { useAuth } from '../contexts/authContext';
 
 const Register = () => {
   const [nombre, setNombre] = useState('');
   const [apellidos, setApellidos] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log({ nombre, apellidos, email, password, rememberMe });
+    setError('');
+    setSuccessMessage('');
+    setLoading(true);
+
+    if (password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      console.log('Creando usuario con:', { email, password });
+      
+      await doCreateUserWithEmailAndPassword(email, password);
+      
+      setSuccessMessage('¡Cuenta creada exitosamente! Redirigiendo al login...');
+      
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error en registro:', error);
+      
+      if (error.code === 'auth/email-already-in-use') {
+        setError('Este correo electrónico ya está registrado');
+      } else if (error.code === 'auth/invalid-email') {
+        setError('El correo electrónico no es válido');
+      } else if (error.code === 'auth/weak-password') {
+        setError('La contraseña es demasiado débil');
+      } else if (error.code === 'auth/operation-not-allowed') {
+        setError('El registro con email/contraseña no está habilitado');
+      } else {
+        setError('Error al crear la cuenta: ' + error.message);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleGoogleLogin = () => {
-    alert('Iniciando sesión con Google...');
+  const handleGoogleSignUp = async () => {
+    setError('');
+    setSuccessMessage('');
+    setLoading(true);
+    
+    try {
+      console.log('Registrando con Google...');
+      await doSignInWithGoogle();
+      console.log('Registro con Google exitoso');
+      navigate('/');
+    } catch (error) {
+      console.error('Error en registro con Google:', error);
+      setError('Error al registrarse con Google: ' + error.message);
+      setLoading(false);
+    }
   };
+
+
+  React.useEffect(() => {
+    if (currentUser) {
+      console.log('Usuario ya autenticado, redirigiendo a /');
+      navigate('/');
+    }
+  }, [currentUser, navigate]);
 
   return (
     <div style={styles.container}>
@@ -134,7 +198,7 @@ const Register = () => {
             <button
               type="button"
               style={styles.googleButton}
-              onClick={handleGoogleLogin}
+              onClick={handleGoogleSignUp}
             >
               <div style={styles.googleButtonContent}>
                 <svg style={styles.googleIcon} viewBox="0 0 24 24">
