@@ -2,7 +2,7 @@ package com.example.qntrol;
 
 import android.os.Bundle;
 import android.util.Log;
-import android.widget.Button;
+import com.google.android.material.button.MaterialButton;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -16,7 +16,7 @@ import com.google.mlkit.vision.codescanner.GmsBarcodeScanning;
 
 public class Eventos extends AppCompatActivity {
 
-    Button botonQR;
+    MaterialButton botonQR;
     GmsBarcodeScanner scanner;
 
     @Override
@@ -40,7 +40,14 @@ public class Eventos extends AppCompatActivity {
                     .addOnSuccessListener(barcode -> {
                         String resultadoQR = barcode.getRawValue();
                         if (resultadoQR != null) {
-                            procesarResultadoQR(resultadoQR);
+                            try {
+                                String codigoLimpio = resultadoQR.trim(); // Limpiamos espacios
+                                Toast.makeText(this, "Leído: " + codigoLimpio, Toast.LENGTH_LONG).show(); // DEBUG
+                                procesarResultadoQR(codigoLimpio);
+                            } catch (Exception e) {
+                                Log.e("QR_process_error", "Error processing QR: " + e.getMessage());
+                                Toast.makeText(this, "Error procesando QR: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                            }
                         }
                     })
                     .addOnCanceledListener(() -> {

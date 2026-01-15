@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "354215271588",
+    "project_id": "qntrol-9865c",
+    "storage_bucket": "qntrol-9865c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:354215271588:android:4b816c15f7d5e7f0655a31",
+        "android_client_info": {
+          "package_name": "com.example.qntrol"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDCe_jVooDe1P5nOt_8D0SmRJ98yLdi0Z4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

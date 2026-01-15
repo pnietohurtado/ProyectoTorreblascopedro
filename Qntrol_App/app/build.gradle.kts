@@ -1,5 +1,6 @@
 plugins {
     id("com.android.application")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -31,8 +32,7 @@ android {
 dependencies {
 
 
-    // ML Kit para escaneo de QR
-    implementation ("com.google.mlkit:barcode-scanning:17.2.0")
+
 
     // Escaneo QR
     implementation ("com.google.android.gms:play-services-code-scanner:16.1.0")
