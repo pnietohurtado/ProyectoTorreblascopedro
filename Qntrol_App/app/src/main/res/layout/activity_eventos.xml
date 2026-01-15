@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -7,33 +6,26 @@
     android:background="@color/background_dark"
     android:padding="24dp">
 
-    <ImageView
-        android:id="@+id/btnBack"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:src="@drawable/ic_back"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_top_toTopOf="parent"
-        app:tint="@android:color/white" />
-
     <TextView
         android:id="@+id/tvTitle"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
         android:fontFamily="@font/inter_bold"
+        android:gravity="center"
         android:text="Graduación Davante"
         android:textColor="@android:color/white"
         android:textSize="24sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_top_toBottomOf="@+id/btnBack"
-        tools:layout_editor_absoluteY="49dp" />
+        app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
         android:id="@+id/tvAforo"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
         android:background="@drawable/bg_dashed_badge"
         android:fontFamily="@font/inter_medium"
         android:paddingHorizontal="16dp"
@@ -41,63 +33,108 @@
         android:text="Aforo: 12/1200"
         android:textColor="@android:color/white"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.498"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_top_toBottomOf="@+id/tvTitle"
-        tools:layout_editor_absoluteY="115dp" />
+        app:layout_constraintTop_toBottomOf="@+id/tvTitle" />
 
     <EditText
         android:id="@+id/etSearch"
-        android:layout_width="333dp"
-        android:layout_height="43dp"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="24dp"
         android:background="@drawable/bg_search_input"
         android:drawableStart="@drawable/ic_search_scaled"
         android:drawablePadding="12dp"
         android:fontFamily="@font/inter_medium"
         android:hint="Buscar alumno"
+        android:importantForAutofill="no"
         android:inputType="text"
         android:paddingHorizontal="16dp"
-        android:textColor="@android:color/white"
         android:textColorHint="#80FFFFFF"
         android:textSize="16sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_top_toBottomOf="@+id/tvAforo"
-        tools:layout_editor_absoluteY="175dp" />
+        app:layout_constraintTop_toBottomOf="@+id/tvAforo" />
 
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardResult"
-        android:layout_width="0dp"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutEstadoAlumno"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="32dp"
-        app:cardBackgroundColor="@android:color/transparent"
-        app:cardCornerRadius="24dp"
-        app:cardElevation="0dp"
+        android:background="@drawable/bg_card_gradient"
+        android:padding="20dp"
+        android:visibility="visible"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_top_toBottomOf="@+id/etSearch"
-        app:strokeWidth="0dp">
-
-    </com.google.android.material.card.MaterialCardView>
-
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/materialCardView"
-        android:layout_width="72dp"
-        android:layout_height="72dp"
-        android:layout_marginBottom="16dp"
-        app:cardBackgroundColor="@color/card_background"
-        app:cardCornerRadius="16dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
+        app:layout_constraintTop_toBottomOf="@+id/etSearch">
 
         <ImageView
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:layout_gravity="center"
-            android:src="@drawable/ic_qr_code"
-            app:tint="@android:color/white" />
-    </com.google.android.material.card.MaterialCardView>
+            android:id="@+id/ivUserIcon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_user"
+            android:contentDescription="Icono de usuario"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/tvMainName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:fontFamily="@font/inter"
+            android:text="Pedro Manuel Liébana Beltrán"
+            android:textColor="@android:color/white"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="@+id/ivUserIcon"
+            app:layout_constraintEnd_toStartOf="@+id/cb1"
+            app:layout_constraintStart_toEndOf="@+id/ivUserIcon"
+            app:layout_constraintTop_toTopOf="@+id/ivUserIcon" />
+
+        <ImageView
+            android:id="@+id/ivArrow1"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginTop="12dp"
+            android:src="@drawable/ic_arrow_right"
+            android:contentDescription="Flecha indicadora"
+            app:layout_constraintStart_toStartOf="@+id/ivUserIcon"
+            app:layout_constraintTop_toBottomOf="@+id/tvMainName" />
+
+        <TextView
+            android:id="@+id/tvSubName1"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:fontFamily="@font/inter"
+            android:text="Pedro Manuel Liébana Rubio"
+            android:textColor="@android:color/white"
+            app:layout_constraintEnd_toStartOf="@+id/cb1"
+            app:layout_constraintStart_toEndOf="@+id/ivArrow1"
+            app:layout_constraintTop_toTopOf="@+id/ivArrow1" />
+
+        <TextView
+            android:id="@+id/tvTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:fontFamily="@font/inter"
+            android:text="12/12/2025 - 16:00h"
+            android:textColor="#B0B0B0"
+            android:textSize="11sp"
+            app:layout_constraintStart_toStartOf="@+id/tvSubName1"
+            app:layout_constraintTop_toBottomOf="@+id/tvSubName1" />
+
+        <CheckBox
+            android:id="@+id/cb1"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/custom_checkbox"
+            android:button="@null"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutEstadoVacio"
@@ -105,8 +142,10 @@
         android:layout_height="200dp"
         android:background="@drawable/bg_card_gradient"
         android:visibility="gone"
-        tools:layout_editor_absoluteX="32dp"
-        tools:layout_editor_absoluteY="265dp">
+        app:layout_constraintTop_toBottomOf="@+id/etSearch"
+        app:layout_constraintBottom_toTopOf="@+id/btnQR"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
         <TextView
             android:layout_width="0dp"
@@ -119,95 +158,26 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_top_toTopOf="parent" />
+            app:layout_constraintTop_toTopOf="parent" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/layoutEstadoAlumno"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/bg_card_gradient"
-        android:padding="20dp"
-        android:visibility="visible"
-        app:layout_constraintBottom_toTopOf="@+id/materialCardView"
-        app:layout_constraintTop_toBottomOf="@+id/etSearch"
-        app:layout_constraintVertical_bias="0.242"
-        tools:layout_editor_absoluteX="24dp">
-
-        <ImageView
-            android:id="@+id/ivUserIcon"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_marginStart="12dp"
-            android:src="@drawable/ic_user"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_top_toTopOf="parent"
-            tools:layout_editor_absoluteY="3dp" />
-
-        <TextView
-            android:id="@+id/tvMainName"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:fontFamily="@font/inter"
-            android:text="Pedro Manuel Liébana Beltrán"
-            android:textColor="@android:color/white"
-            android:textStyle="bold"
-            app:layout_constraintBottom_toBottomOf="@+id/ivUserIcon"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.0"
-            app:layout_constraintStart_toEndOf="@+id/ivUserIcon"
-            app:layout_top_toTopOf="@+id/ivUserIcon" />
-
-        <ImageView
-            android:id="@+id/ivArrow1"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:layout_marginStart="12dp"
-            android:src="@drawable/ic_arrow_right"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_top_toBottomOf="@+id/tvMainName"
-            tools:layout_editor_absoluteY="44dp" />
-
-        <TextView
-            android:id="@+id/tvSubName1"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:fontFamily="@font/inter"
-            android:text="Pedro Manuel Liébana Rubio"
-            android:textColor="@android:color/white"
-            app:layout_constraintEnd_toStartOf="@+id/cb1"
-            app:layout_constraintHorizontal_bias="1.0"
-            app:layout_constraintStart_toEndOf="@+id/ivArrow1"
-            app:layout_top_toTopOf="@+id/ivArrow1"
-            tools:layout_editor_absoluteY="46dp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:fontFamily="@font/inter"
-            android:text="12/12/2025 - 16:00h"
-            android:textColor="#B0B0B0"
-            android:textSize="11sp"
-            app:layout_constraintStart_toStartOf="@+id/tvSubName1"
-            app:layout_top_toBottomOf="@+id/tvSubName1"
-            tools:layout_editor_absoluteY="70dp" />
-
-        <CheckBox
-            android:id="@+id/cb1"
-            android:layout_width="22dp"
-            android:layout_height="22dp"
-            android:layout_marginEnd="16dp"
-            android:layout_marginBottom="16dp"
-            android:background="@drawable/custom_checkbox"
-            android:button="@null"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_top_toTopOf="@+id/tvSubName1" />
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnQR"
+        android:layout_width="wrap_content"
+        android:layout_height="70dp"
+        android:layout_marginBottom="24dp"
+        android:background="@drawable/bg_search_input"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:padding="0dp"
+        app:backgroundTint="@null"
+        app:icon="@drawable/ic_qr_code"
+        app:iconSize="32dp"
+        app:iconGravity="textStart"
+        app:iconPadding="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:contentDescription="Escanear código QR"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

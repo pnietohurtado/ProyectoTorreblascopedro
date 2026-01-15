@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res/auto"
-    xmlns:app2="http://schemas.android.com/apk/res-auto"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -10,31 +10,26 @@
 
     <TextView
         android:id="@+id/tvWelcome"
-        android:layout_width="231dp"
-        android:layout_height="40dp"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginTop="24dp"
+        android:layout_marginEnd="12dp"
         android:fontFamily="@font/inter_bold"
         android:text="Bienvenido, Pedro"
         android:textColor="@android:color/white"
         android:textSize="24sp"
-        app2:layout_constraintStart_toStartOf="parent"
-        app2:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/ivSettings"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_top_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent" />
 
     <ImageView
         android:id="@+id/ivSettings"
         android:layout_width="28dp"
         android:layout_height="28dp"
-        android:layout_marginTop="28dp"
         android:layout_marginEnd="16dp"
         android:contentDescription="Ajustes"
         android:src="@drawable/ic_settings"
-        app2:layout_constraintEnd_toEndOf="parent"
-        app2:layout_constraintHorizontal_bias="1.0"
-        app2:layout_constraintStart_toEndOf="@+id/tvWelcome"
-        app2:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="@+id/tvWelcome"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="@+id/tvWelcome" />
@@ -50,56 +45,40 @@
         android:text="Tus eventos"
         android:textColor="@android:color/white"
         android:textSize="14sp"
-        app2:layout_constraintEnd_toEndOf="parent"
-        app2:layout_constraintHorizontal_bias="0.0"
-        app2:layout_constraintStart_toStartOf="parent"
-        app2:layout_constraintTop_toBottomOf="@+id/tvWelcome"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_top_toBottomOf="@+id/tvWelcome" />
+        app:layout_constraintTop_toBottomOf="@+id/tvWelcome" />
 
     <androidx.constraintlayout.widget.ConstraintLayout
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginTop="28dp"
         android:layout_marginEnd="16dp"
         android:background="@drawable/bg_card_gradient"
         android:padding="20dp"
-        app2:layout_constraintBottom_toBottomOf="parent"
-        app2:layout_constraintEnd_toEndOf="parent"
-        app2:layout_constraintHorizontal_bias="0.0"
-        app2:layout_constraintStart_toStartOf="parent"
-        app2:layout_constraintTop_toBottomOf="@+id/tvEventsTitle"
-        app2:layout_constraintVertical_bias="0.0">
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tvEventsTitle">
 
         <ImageView
             android:id="@+id/ivEventLogo"
             android:layout_width="14dp"
             android:layout_height="13dp"
-            android:layout_marginBottom="5dp"
+            android:layout_marginBottom="8dp"
+            android:contentDescription="Logo del evento"
             android:src="@drawable/ic_event_logo"
-            app2:layout_constraintBottom_toTopOf="@+id/tvEventName"
-            app2:layout_constraintEnd_toEndOf="parent"
-            app2:layout_constraintHorizontal_bias="0.0"
-            app2:layout_constraintStart_toStartOf="parent"
-            app2:layout_constraintTop_toTopOf="parent"
-            app2:layout_constraintVertical_bias="0.0"
+            app:layout_constraintBottom_toTopOf="@+id/tvEventName"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_top_toTopOf="parent" />
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_chainStyle="packed" />
 
         <TextView
             android:id="@+id/tvEventName"
-            android:layout_width="261dp"
-            android:layout_height="17dp"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
             android:fontFamily="@font/inter_bold"
             android:text="Graduación Davante / Jaén"
             android:textColor="#FFFFFF"
-            app2:layout_constraintBottom_toBottomOf="parent"
-            app2:layout_constraintEnd_toEndOf="parent"
-            app2:layout_constraintHorizontal_bias="0.0"
-            app2:layout_constraintStart_toStartOf="parent"
-            app2:layout_constraintTop_toTopOf="parent"
-            app2:layout_constraintVertical_bias="1.0"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
