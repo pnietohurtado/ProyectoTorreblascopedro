@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth"; 
+import {getFirestore, doc, collection, setDoc, getDoc, updateDoc} from "firebase/firestore"; 
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -16,5 +17,30 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 const auth = getAuth(app); 
+const database = getFirestore(app); 
 
-export { app, auth, analytics };
+const getAlumnoData = async () => {
+  const docRef = doc(database, "Alumno" , "PruebaReact"); 
+  const docSnap = await getDoc(docRef); 
+  if (docSnap.exists()){
+    const data = docSnap.data(); 
+    console.log("Datos desde el firebase.js : ", data); 
+    return data.Nombre; 
+  }else {
+    console.log("Documento no encontrado!"); 
+    return null; 
+  }
+}
+
+const sendAlumnoData = async (addEscaneo, addNombre, addQR, addid_evento) => { // Le debemos pasar los datos por parámetro 
+  const docRef = doc(database, "Alumno" , addid_evento); 
+  let result = await setDoc(docRef,  {
+    Escaneo: addEscaneo,
+    Nombre: addNombre, 
+    QR: addQR, 
+    id_evento: addid_evento
+  }, {merge: true}); 
+  return addEscaneo, addNombre, addQR, addid_evento; 
+}
+
+export { app, auth, analytics, database , doc, collection, setDoc, getDoc, updateDoc, getAlumnoData, sendAlumnoData};

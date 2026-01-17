@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import Button from './Button';
 import excelIcon from '../assets/excel-icon.png';
+import {getAlumnoData, sendAlumnoData} from "../firebase/firebase"; 
 
 const EventForm = ({ onSave, onCancel }) => {
   const [title, setTitle] = useState('');
@@ -13,7 +14,6 @@ const EventForm = ({ onSave, onCancel }) => {
   const [showUploadArea, setShowUploadArea] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Manejar drag & drop
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -71,15 +71,30 @@ const EventForm = ({ onSave, onCancel }) => {
     reader.onload = (e) => {
       try {
         const text = e.target.result;
-        const data = parseCSV(text);
+        const data = parseCSV(text); // Variable donde se encuentran todos los datos 
         setGuestList(data);
         
-        // Mostrar confirmación
-        alert(`✅ ${data.length} invitados cargados exitosamente desde "${file.name}"`);
+        // =========== MUY IMPORTANTE ==============
+        // Se trata de la función encargada de traer los datos de la base de datos de 
+        // firestore.
         
-        // Mostrar vista previa
+        getAlumnoData();
+        // =========================================
+
+        // Mostrar confirmación
+        alert(`${data.length} invitados cargados exitosamente desde "${file.name}"`);
+        
+        // Aquí cargamos todos los datos dentro del .csv que hemos pasado 
         if (data.length > 0) {
-          console.log('Datos cargados:', data);
+          for(let i = 0; i < data.length; i++){
+            // Espacio para enviar todos los datos a la base de datos de firebase 
+
+            sendAlumnoData(data[i].Escaneo, data[i].Nombre, data[i].QR, data[i].id_evento); 
+            
+            // ==================================================================
+
+            console.log('Datos cargados:', data[i].Nombre);
+          }
         }
       } catch (error) {
         console.error('Error al procesar el archivo:', error);
@@ -93,10 +108,7 @@ const EventForm = ({ onSave, onCancel }) => {
     
     if (fileExtension === 'csv') {
       reader.readAsText(file, 'UTF-8');
-    } else {
-      alert('Para archivos Excel (.xlsx, .xls) necesitarías instalar una librería adicional como "xlsx". Por ahora, usa CSV.');
-      reader.readAsBinaryString(file);
-    }
+    } 
   };
 
   const parseCSV = (text) => {
@@ -106,7 +118,7 @@ const EventForm = ({ onSave, onCancel }) => {
     if (lines.length === 0) return result;
     
     const firstLine = lines[0];
-    const delimiter = firstLine.includes(';') ? ';' : ',';
+    const delimiter = firstLine.includes(';') ? ';' : ','; // Se puede usar tanto el ";" como la "," para separar los campos 
     
     const headers = firstLine.split(delimiter).map(h => h.trim());
     
