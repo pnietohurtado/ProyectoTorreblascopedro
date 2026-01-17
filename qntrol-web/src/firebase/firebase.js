@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth"; 
-import {getFirestore, doc, collection, setDoc, getDoc, updateDoc} from "firebase/firestore"; 
+import {getFirestore, doc, collection, setDoc, getDoc,getDocs,writeBatch, updateDoc} from "firebase/firestore"; 
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -14,33 +14,77 @@ const firebaseConfig = {
   measurementId: "G-W3T01MJWC9"
 };
 
-const app = initializeApp(firebaseConfig);
+
+// 🔥 CAMBIO 1: Usar patron singleton
+let _app = null;
+let _database = null;
+
+const getApp = () => {
+  if (!_app) {
+    _app = initializeApp(firebaseConfig);
+  }
+  return _app;
+};
+
+const getDatabase = () => {
+  if (!_database) {
+    _database = getFirestore(getApp());
+  }
+  return _database;
+};
+
+// Inicializar
+const app = getApp();
 const analytics = getAnalytics(app);
 const auth = getAuth(app); 
-const database = getFirestore(app); 
+const database = getDatabase();
+
 
 const getAlumnoData = async () => {
-  const docRef = doc(database, "Alumno" , "PruebaReact"); 
+  const docRef = doc(getDatabase(), "Alumno" , "PruebaReact"); 
   const docSnap = await getDoc(docRef); 
   if (docSnap.exists()){
     const data = docSnap.data(); 
     console.log("Datos desde el firebase.js : ", data); 
-    return data.Nombre; 
+    return data; 
   }else {
     console.log("Documento no encontrado!"); 
     return null; 
   }
 }
 
-const sendAlumnoData = async (addEscaneo, addNombre, addQR, addid_evento) => { // Le debemos pasar los datos por parámetro 
-  const docRef = doc(database, "Alumno" , addid_evento); 
+
+const deletePreviousData = async (collectionName) => {
+    const collectionRef = collection(getDatabase(), collectionName); 
+    const querySnapshot = await getDocs(collectionRef); 
+
+    const batch = writeBatch(getDatabase());
+    
+    querySnapshot.forEach((docSnapshot) => {
+      const docRef = doc(getDatabase(), collectionName, docSnapshot.id);
+      batch.delete(docRef);
+    });
+
+    await batch.commit(); 
+}
+
+const sendAlumnoData = async ( addEscaneo, addNombre, addQR, addid_evento) => { // Le debemos pasar los datos por parámetro 
+  await deletePreviousData("Alumno"); 
+  
+  const docRef = doc(getDatabase(), "Alumno" , addid_evento); 
   let result = await setDoc(docRef,  {
     Escaneo: addEscaneo,
     Nombre: addNombre, 
     QR: addQR, 
     id_evento: addid_evento
   }, {merge: true}); 
-  return addEscaneo, addNombre, addQR, addid_evento; 
+
+  return {
+    Escaneo: addEscaneo,
+    Nombre: addNombre,
+    QR: addQR,
+    id_evento: addid_evento
+  };
 }
 
-export { app, auth, analytics, database , doc, collection, setDoc, getDoc, updateDoc, getAlumnoData, sendAlumnoData};
+export { app, auth, analytics, database , doc,getDocs,writeBatch, collection, setDoc, getDoc, updateDoc, getAlumnoData, sendAlumnoData};

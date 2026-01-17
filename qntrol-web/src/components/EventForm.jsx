@@ -162,10 +162,10 @@ const EventForm = ({ onSave, onCancel }) => {
     const formattedDate = dateObj.toLocaleDateString('es-ES') + ' - ' + (time ? time + 'h' : '');
 
     const newEvent = {
-      title,
-      address,
-      date: formattedDate,
-      guestList: guestList.length > 0 ? guestList : null
+      title, // Nombre del evento
+      address, // Dirección donde se va a hacer el evento
+      date: formattedDate, // Fecha y hora 
+      guestList: guestList.length > 0 ? guestList : null // Lista de los invitados 
     };
 
     onSave(newEvent);

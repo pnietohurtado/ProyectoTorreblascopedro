@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import Button from './Button';
 import excelIcon from '../assets/excel-icon.png';
+import {getAlumnoData, sendAlumnoData} from "../firebase/firebase"; 
 
 const EventList = ({ events, onEditEvent, onCreateClick }) => {
   // Si no hay eventos, usar array vacío
@@ -126,12 +127,21 @@ const EventList = ({ events, onEditEvent, onCreateClick }) => {
       try {
         const text = e.target.result;
         const data = parseCSV(text);
-        setGuestList(data);
         
-        alert(`✅ ${data.length} invitados cargados exitosamente desde "${file.name}"`);
+        
+        // ============= MUY IMPORTANTE =============
+        // Aquí cargamos los datos de los invitados que están dentro de la base de datos 
+        // de firebase
+        setGuestList(getAlumnoData());
+        // ==========================================
         
         if (data.length > 0) {
-          console.log('Datos cargados:', data);
+          // ========================================
+          // Para cargar todos los nuevos datos dentro de la base de datos de firebase 
+          for(let i = 0; i < data.length; i++){
+            sendAlumnoData(data[i].Escaneo, data[i].Nombre, data[i].QR, data[i].id_evento);
+          }
+          // ========================================
         }
       } catch (error) {
         console.error('Error al procesar el archivo:', error);
