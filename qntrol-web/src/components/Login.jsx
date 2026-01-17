@@ -22,6 +22,7 @@ const Login = () => {
     try {
       await doSignInWithEmailAndPassword(email, password);
       console.log('Login exitoso');
+      navigate("/"); 
     } catch (error) {
       console.error('Error en login:', error);
       setError(error.message || 'Error al iniciar sesión. Verifica tus credenciales.');
