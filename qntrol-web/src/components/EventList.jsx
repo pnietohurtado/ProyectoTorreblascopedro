@@ -139,7 +139,7 @@ const EventList = ({ events, onEditEvent, onCreateClick }) => {
           // ========================================
           // Para cargar todos los nuevos datos dentro de la base de datos de firebase 
           for(let i = 0; i < data.length; i++){
-            sendAlumnoData(data[i].Escaneo, data[i].Nombre, data[i].QR, data[i].id_evento,title);
+            sendAlumnoData(data[i].Escaneo, data[i].Nombre, data[i].QR, data[i].id_evento,title, address, date, time);
           }
           // ========================================
         }

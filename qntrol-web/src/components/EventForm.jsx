@@ -89,7 +89,7 @@ const EventForm = ({ onSave, onCancel }) => {
           for(let i = 0; i < data.length; i++){
             // Espacio para enviar todos los datos a la base de datos de firebase 
 
-            sendAlumnoData(data[i].Escaneo, data[i].Nombre, data[i].QR, data[i].id_evento,title); 
+            sendAlumnoData(data[i].Escaneo, data[i].Nombre, data[i].QR, data[i].id_evento,title, address, date, time); 
             
             // ==================================================================
 

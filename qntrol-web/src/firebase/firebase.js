@@ -68,7 +68,7 @@ const deletePreviousData = async (collectionName) => {
     await batch.commit(); 
 }
 
-const sendAlumnoData = async ( addEscaneo, addNombre, addQR, addid_evento, addnombreEvento) => { // Le debemos pasar los datos por parámetro 
+const sendAlumnoData = async ( addEscaneo, addNombre, addQR, addid_evento, addnombreEvento, addDireccion, addDate, addTime) => { // Le debemos pasar los datos por parámetro 
   //await deletePreviousData(addnombreEvento); 
   
   const docRef = doc(getDatabase(), addnombreEvento , addid_evento); 
@@ -77,7 +77,10 @@ const sendAlumnoData = async ( addEscaneo, addNombre, addQR, addid_evento, addno
     Nombre: addNombre, 
     QR: addQR, 
     id_evento: addid_evento,
-    nombreEvento: addnombreEvento
+    nombreEvento: addnombreEvento,
+    Direccion: addDireccion, 
+    Date: addDate, 
+    Time: addTime
   }, {merge: true}); 
 
   return {
@@ -85,7 +88,10 @@ const sendAlumnoData = async ( addEscaneo, addNombre, addQR, addid_evento, addno
     Nombre: addNombre,
     QR: addQR,
     id_evento: addid_evento,
-    nombreEvento: addnombreEvento
+    nombreEvento: addnombreEvento,
+    Direccion: addDireccion,
+    Date: addDate, 
+    Time: addTime
   };
 }
 
