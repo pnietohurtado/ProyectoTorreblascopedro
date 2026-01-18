@@ -78,7 +78,7 @@ const EventForm = ({ onSave, onCancel }) => {
         // Se trata de la función encargada de traer los datos de la base de datos de 
         // firestore.
         
-        getAlumnoData();
+          getAlumnoData();
         // =========================================
 
         // Mostrar confirmación

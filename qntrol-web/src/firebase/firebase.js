@@ -3,6 +3,20 @@ import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth"; 
 import {getFirestore, doc, collection, setDoc, getDoc,getDocs,writeBatch, updateDoc} from "firebase/firestore"; 
 
+// Variables de entorno heredadas de la autenticación 
+let currentUser = null; 
+let uid = null; 
+
+// Obetener el usuario actual 
+export const getCurrentUser = (callback) => {
+  currentUser = auth.currentUser.email; 
+}; 
+
+// Obetener el uuid de el usuario que tiene iniciada la sesión 
+export const getUid = (callback) => {
+  uid = auth.currentUser.uid; 
+}; 
+
 // Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCmS7u3iX8cJuTZzQu8XHQXu4yqHkchH-s",
@@ -14,8 +28,6 @@ const firebaseConfig = {
   measurementId: "G-W3T01MJWC9"
 };
 
-
-// 🔥 CAMBIO 1: Usar patron singleton
 let _app = null;
 let _database = null;
 
@@ -69,9 +81,13 @@ const deletePreviousData = async (collectionName) => {
 }
 
 const sendAlumnoData = async ( addEscaneo, addNombre, addQR, addid_evento, addnombreEvento, addDireccion, addDate, addTime) => { // Le debemos pasar los datos por parámetro 
-  //await deletePreviousData(addnombreEvento); 
+  await deletePreviousData(addnombreEvento); 
   
   const docRef = doc(getDatabase(), addnombreEvento , addid_evento); 
+
+  getCurrentUser(); 
+  console.log("Usuario actual: " , currentUser); 
+
   let result = await setDoc(docRef,  {
     Escaneo: addEscaneo,
     Nombre: addNombre, 
