@@ -3,21 +3,25 @@ import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth"; 
 import {getFirestore, doc, collection, setDoc, getDoc,getDocs,writeBatch, updateDoc} from "firebase/firestore"; 
 
-// Variables de entorno heredadas de la autenticación 
 let currentUser = null; 
 let uid = null; 
 
-// Obetener el usuario actual 
-export const getCurrentUser = (callback) => {
-  currentUser = auth.currentUser.email; 
+export const getCurrentUser = () => {
+  if (auth.currentUser) {
+    currentUser = auth.currentUser.email; 
+    return currentUser;
+  }
+  return null;
 }; 
 
-// Obetener el uuid de el usuario que tiene iniciada la sesión 
-export const getUid = (callback) => {
-  uid = auth.currentUser.uid; 
+export const getUid = () => {
+  if (auth.currentUser) {
+    uid = auth.currentUser.uid; 
+    return uid;
+  }
+  return null;
 }; 
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCmS7u3iX8cJuTZzQu8XHQXu4yqHkchH-s",
   authDomain: "qntrol-9865c.firebaseapp.com",
@@ -38,65 +42,63 @@ const getApp = () => {
   return _app;
 };
 
-const getDatabase = () => {
+export const getDatabase = () => {
   if (!_database) {
     _database = getFirestore(getApp());
   }
   return _database;
 };
 
-// Inicializar
 const app = getApp();
 const analytics = getAnalytics(app);
 const auth = getAuth(app); 
 const database = getDatabase();
 
-
 const getAlumnoData = async () => {
-  const docRef = doc(getDatabase(), "Alumno" , "PruebaReact"); 
+  const usuario = getCurrentUser();
+  const userId = getUid();
+  
+  if (!usuario || !userId) {
+    console.log("Usuario no autenticado");
+    return null;
+  }
+  
+  const docRef = doc(database, userId, usuario); // Usar 'database' en lugar de getDatabase()
   const docSnap = await getDoc(docRef); 
+  
   if (docSnap.exists()){
-    const data = docSnap.data(); 
-    console.log("Datos desde el firebase.js : ", data); 
-    return data; 
+    return docSnap.data(); 
   }else {
     console.log("Documento no encontrado!"); 
     return null; 
   }
 }
 
-
-const deletePreviousData = async (collectionName) => {
-    const collectionRef = collection(getDatabase(), collectionName); 
-    const querySnapshot = await getDocs(collectionRef); 
-
-    const batch = writeBatch(getDatabase());
-    
-    querySnapshot.forEach((docSnapshot) => {
-      const docRef = doc(getDatabase(), collectionName, docSnapshot.id);
-      batch.delete(docRef);
-    });
-
-    await batch.commit(); 
-}
-
-const sendAlumnoData = async ( addEscaneo, addNombre, addQR, addid_evento, addnombreEvento, addDireccion, addDate, addTime) => { // Le debemos pasar los datos por parámetro 
-  await deletePreviousData(addnombreEvento); 
+const sendAlumnoData = async (addEscaneo, addNombre, addQR, addid_evento, addnombreEvento, addDireccion, addDate, addTime) => {
+  const usuario = getCurrentUser();
+  const userId = getUid();
   
-  const docRef = doc(getDatabase(), addnombreEvento , addid_evento); 
+  if (!usuario || !userId) {
+    throw new Error("Usuario no autenticado");
+  }
+  
+  const docRef = doc(database, userId, usuario); // Usar 'database' en lugar de getDatabase()
 
-  getCurrentUser(); 
-  console.log("Usuario actual: " , currentUser); 
-
-  let result = await setDoc(docRef,  {
-    Escaneo: addEscaneo,
-    Nombre: addNombre, 
-    QR: addQR, 
-    id_evento: addid_evento,
-    nombreEvento: addnombreEvento,
-    Direccion: addDireccion, 
-    Date: addDate, 
-    Time: addTime
+  await setDoc(docRef, {
+    usuario: usuario,
+    uuid: userId,
+    Eventos: [{
+      NombreEvento: addnombreEvento,
+      Direccion: addDireccion, 
+      Hora: addTime,
+      Fecha: addDate,
+      DatosAlumno: [{
+        QR: addQR,
+        Nombre: addNombre,
+        Escaneo: addEscaneo, 
+        idEvento: addid_evento,
+      }]
+    }]
   }, {merge: true}); 
 
   return {
@@ -111,4 +113,4 @@ const sendAlumnoData = async ( addEscaneo, addNombre, addQR, addid_evento, addno
   };
 }
 
-export { app, auth, analytics, database , doc,getDocs,writeBatch, collection, setDoc, getDoc, updateDoc, getAlumnoData, sendAlumnoData};
+export { app, auth, analytics, database, doc, getDocs, writeBatch, collection, setDoc, getDoc, updateDoc, getAlumnoData, sendAlumnoData};
