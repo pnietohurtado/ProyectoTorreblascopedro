@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth"; 
-import {getFirestore, doc, collection, setDoc, getDoc,getDocs,writeBatch, updateDoc} from "firebase/firestore"; 
+import {getFirestore, doc, collection, setDoc, getDoc,getDocs,writeBatch, updateDoc, runTransaction} from "firebase/firestore"; 
 
 let currentUser = null; 
 let uid = null; 
@@ -63,13 +63,13 @@ const getAlumnoData = async () => {
     return null;
   }
   
-  const docRef = doc(database, userId, usuario); // Usar 'database' en lugar de getDatabase()
+  const docRef = doc(database, "123123123", usuario); // Usar 'database' en lugar de getDatabase()
   const docSnap = await getDoc(docRef); 
   
   if (docSnap.exists()){
     return docSnap.data(); 
   }else {
-    console.log("Documento no encontrado!"); 
+    console.log("Documento no encontrado! : ", uid); 
     return null; 
   }
 }
@@ -82,24 +82,59 @@ const sendAlumnoData = async (addEscaneo, addNombre, addQR, addid_evento, addnom
     throw new Error("Usuario no autenticado");
   }
   
-  const docRef = doc(database, userId, usuario); // Usar 'database' en lugar de getDatabase()
+  const docRef = doc(database, "123123123", usuario);
 
-  await setDoc(docRef, {
-    usuario: usuario,
-    uuid: userId,
-    Eventos: [{
-      NombreEvento: addnombreEvento,
-      Direccion: addDireccion, 
-      Hora: addTime,
-      Fecha: addDate,
-      DatosAlumno: [{
-        QR: addQR,
-        Nombre: addNombre,
-        Escaneo: addEscaneo, 
-        idEvento: addid_evento,
-      }]
-    }]
-  }, {merge: true}); 
+  // Usar transacción para evitar conflictos
+  try {
+    await runTransaction(database, async (transaction) => {
+      const docSnap = await transaction.get(docRef);
+      let eventosData = [];
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        eventosData = data.Eventos || [];
+      }
+      
+      const eventoIndex = eventosData.findIndex(evento => 
+        evento.NombreEvento === addnombreEvento
+      );
+      
+      if (eventoIndex !== -1) {
+        const alumnosExistentes = eventosData[eventoIndex].DatosAlumno || [];
+        eventosData[eventoIndex].DatosAlumno = [
+          ...alumnosExistentes,
+          {
+            QR: addQR,
+            Nombre: addNombre,
+            Escaneo: addEscaneo,
+            idEvento: addid_evento,
+          }
+        ];
+      } else {
+        eventosData.push({
+          NombreEvento: addnombreEvento,
+          Direccion: addDireccion,
+          Hora: addTime,
+          Fecha: addDate,
+          DatosAlumno: [{
+            QR: addQR,
+            Nombre: addNombre,
+            Escaneo: addEscaneo,
+            idEvento: addid_evento,
+          }]
+        });
+      }
+      
+      transaction.set(docRef, {
+        usuario: usuario,
+        uuid: "123123123",
+        Eventos: eventosData
+      }, { merge: true });
+    });
+  } catch (error) {
+    console.error("Error en transacción:", error);
+    throw error;
+  }
 
   return {
     Escaneo: addEscaneo,
@@ -108,9 +143,11 @@ const sendAlumnoData = async (addEscaneo, addNombre, addQR, addid_evento, addnom
     id_evento: addid_evento,
     nombreEvento: addnombreEvento,
     Direccion: addDireccion,
-    Date: addDate, 
+    Date: addDate,
     Time: addTime
   };
-}
+};
 
-export { app, auth, analytics, database, doc, getDocs, writeBatch, collection, setDoc, getDoc, updateDoc, getAlumnoData, sendAlumnoData};
+
+
+export { app, auth, analytics, database, runTransaction, doc, getDocs, writeBatch, collection, setDoc, getDoc, updateDoc, getAlumnoData, sendAlumnoData};

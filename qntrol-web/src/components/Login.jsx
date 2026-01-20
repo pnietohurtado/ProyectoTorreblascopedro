@@ -50,6 +50,7 @@ const Login = () => {
   // Verificar si ya está autenticado
   React.useEffect(() => {
     if (currentUser) {
+      //console.log(currentUser); 
       navigate('/');
     }
   }, [currentUser, navigate]);
