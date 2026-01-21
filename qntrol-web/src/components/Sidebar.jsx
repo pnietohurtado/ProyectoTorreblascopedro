@@ -1,14 +1,21 @@
+import { useAuth } from '../contexts/authContext'; 
+
 const Sidebar = () => {
+  const { currentUser } = useAuth(); 
+
+  const userName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Usuario';
+  const userInitial = userName[0].toUpperCase();
+
   return (
     <div className="w-80 h-full bg-[#0D0E22] text-white p-6 flex flex-col gap-10 border-r border-white/5 z-20 shadow-2xl">
       {/* Perfil */}
       <div className="flex items-center gap-4 p-2">
         <div className="w-12 h-12 bg-[#4A236D] rounded-full flex items-center justify-center text-lg font-bold shadow-lg shadow-purple-900/50">
-          A
+          {userInitial}
         </div>
         <div className="flex flex-col">
-          <span className="font-bold text-lg leading-tight">Admin</span>
-          <span className="text-xs text-gray-400">Administrador</span>
+          <span className="font-bold text-lg leading-tight">{userName}</span>
+          <span className="text-xs text-gray-400">{userName}</span>
         </div>
       </div>
 

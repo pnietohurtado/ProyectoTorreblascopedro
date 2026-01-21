@@ -63,7 +63,7 @@ const getAlumnoData = async () => {
     return null;
   }
   
-  const docRef = doc(database, "123123123", usuario); // Usar 'database' en lugar de getDatabase()
+  const docRef = doc(database, "123123123", usuario);
   const docSnap = await getDoc(docRef); 
   
   if (docSnap.exists()){
@@ -84,7 +84,6 @@ const sendAlumnoData = async (addEscaneo, addNombre, addQR, addid_evento, addnom
   
   const docRef = doc(database, "123123123", usuario);
 
-  // Usar transacción para evitar conflictos
   try {
     await runTransaction(database, async (transaction) => {
       const docSnap = await transaction.get(docRef);
