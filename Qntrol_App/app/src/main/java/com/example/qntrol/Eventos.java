@@ -1,23 +1,21 @@
 package com.example.qntrol;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
-import com.google.android.material.button.MaterialButton;
 import android.widget.Toast;
+
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
-// Imports de Firebase y Google Scanner
+import com.google.android.material.button.MaterialButton;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.mlkit.vision.barcode.common.Barcode;
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanner;
-import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions;
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanning;
 
 public class Eventos extends AppCompatActivity {
 
-    MaterialButton botonQR;
-    GmsBarcodeScanner scanner;
+    private MaterialButton botonQR;
+    private final int QR_REQUEST_CODE = 100; // Código para identificar la Activity de QR
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,45 +24,33 @@ public class Eventos extends AppCompatActivity {
 
         botonQR = findViewById(R.id.btnQR);
 
-        // 1. CONFIGURACIÓN DEL SCANNER (Google Code Scanner)
-        GmsBarcodeScannerOptions options = new GmsBarcodeScannerOptions.Builder()
-                .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
-                .build();
-
-        scanner = GmsBarcodeScanning.getClient(this, options);
-
-        // 2. EVENTO DEL BOTÓN
+        // Evento del botón para abrir la Activity de escaneo
         botonQR.setOnClickListener(view -> {
-            // Iniciamos el escaneo directamente
-            scanner.startScan()
-                    .addOnSuccessListener(barcode -> {
-                        String resultadoQR = barcode.getRawValue();
-                        if (resultadoQR != null) {
-                            try {
-                                String codigoLimpio = resultadoQR.trim(); // Limpiamos espacios
-                                Toast.makeText(this, "Leído: " + codigoLimpio, Toast.LENGTH_LONG).show(); // DEBUG
-                                procesarResultadoQR(codigoLimpio);
-                            } catch (Exception e) {
-                                Log.e("QR_process_error", "Error processing QR: " + e.getMessage());
-                                Toast.makeText(this, "Error procesando QR: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                            }
-                        }
-                    })
-                    .addOnCanceledListener(() -> {
-                        Toast.makeText(this, "Escaneo cancelado", Toast.LENGTH_SHORT).show();
-                    })
-                    .addOnFailureListener(e -> {
-                        Log.e("QR_ERROR", e.getMessage());
-                        Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                    });
+            Intent intent = new Intent(Eventos.this, QrScannerActivity.class);
+            startActivityForResult(intent, QR_REQUEST_CODE);
         });
+    }
+
+    // Aquí recibimos el resultado del QR escaneado
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == QR_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
+            String codigoLeido = data.getStringExtra("QR_VALUE");
+            if (codigoLeido != null) {
+                Toast.makeText(this, "Leído: " + codigoLeido, Toast.LENGTH_LONG).show(); // DEBUG
+                // Toast.makeText(this, "Leído: " + codigoLeido, Toast.LENGTH_LONG).show(); 
+                // La validación ahora se hace en QrScannerActivity, aquí solo refrescamos si es necesario
+                // procesarResultadoQR(codigoLeido.trim());
+            }
+        }
     }
 
     private void procesarResultadoQR(String codigoLeido) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
-        // Buscamos en la colección "Alumno" por el campo "QR"
-        db.collection("Alumno")
+        db.collection("usuarios")
                 .whereEqualTo("QR", codigoLeido)
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
@@ -91,7 +77,7 @@ public class Eventos extends AppCompatActivity {
     private void confirmarEntrada(String idDocumento, String nombre) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
-        db.collection("Alumno").document(idDocumento)
+        db.collection("usuarios").document(idDocumento)
                 .update("Escaneo", true)
                 .addOnSuccessListener(aVoid -> {
                     Toast.makeText(this, "ACCESO PERMITIDO: " + nombre, Toast.LENGTH_LONG).show();
