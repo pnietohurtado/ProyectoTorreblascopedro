@@ -53,46 +53,46 @@ const EventForm = ({ onSave, onCancel }) => {
   };
 
   const processFile = (file) => {
-  const fileExtension = file.name.split('.').pop().toLowerCase();
-  if (!['csv', 'xlsx', 'xls'].includes(fileExtension)) {
-    alert('Por favor sube un archivo CSV o Excel (.csv, .xlsx, .xls)');
-    return;
-  }
-
-  setFileName(file.name);
-  setShowUploadArea(false);
-
-  const reader = new FileReader();
-  
-  reader.onload = async (e) => {
-    try {
-      const text = e.target.result;
-      const data = parseCSV(text);
-      
-      // Validar que el CSV tenga al menos el campo "Nombre"
-      if (data.length > 0 && !data[0].Nombre && !data[0].nombre) {
-        alert('El archivo CSV necesita al menos una columna "Nombre" o "nombre"');
-        return;
-      }
-      
-      setGuestList(data);
-      
-      alert(`${data.length} invitados cargados exitosamente desde "${file.name}"`);
-      
-    } catch (error) {
-      console.error('Error al procesar el archivo:', error);
-      alert('Error al leer el archivo. Verifica el formato.');
+    const fileExtension = file.name.split('.').pop().toLowerCase();
+    if (!['csv', 'xlsx', 'xls'].includes(fileExtension)) {
+      alert('Por favor sube un archivo CSV o Excel (.csv, .xlsx, .xls)');
+      return;
     }
+
+    setFileName(file.name);
+    setShowUploadArea(false);
+
+    const reader = new FileReader();
+    
+    reader.onload = async (e) => {
+      try {
+        const text = e.target.result;
+        const data = parseCSV(text);
+        
+        // Validar que el CSV tenga al menos el campo "Nombre"
+        if (data.length > 0 && !data[0].Nombre && !data[0].nombre) {
+          alert('El archivo CSV necesita al menos una columna "Nombre" o "nombre"');
+          return;
+        }
+        
+        setGuestList(data);
+        
+        alert(`${data.length} invitados cargados exitosamente desde "${file.name}"`);
+        
+      } catch (error) {
+        console.error('Error al procesar el archivo:', error);
+        alert('Error al leer el archivo. Verifica el formato.');
+      }
+    };
+    
+    reader.onerror = () => {
+      alert('Error al leer el archivo');
+    };
+    
+    if (fileExtension === 'csv') {
+      reader.readAsText(file, 'UTF-8');
+    } 
   };
-  
-  reader.onerror = () => {
-    alert('Error al leer el archivo');
-  };
-  
-  if (fileExtension === 'csv') {
-    reader.readAsText(file, 'UTF-8');
-  } 
-};
 
   const parseCSV = (text) => {
     const lines = text.split(/\r\n|\n|\r/);
@@ -191,11 +191,13 @@ const EventForm = ({ onSave, onCancel }) => {
 
     } catch (error) {
       console.error('Error al crear evento:', error);
+      console.error('Detalles del error:', error.message, error.stack);
       alert(`Error al crear evento: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
+
 
   // El resto del código JSX permanece igual
   return (

@@ -29,19 +29,12 @@ const analytics = getAnalytics(app);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-console.log("🔥 Firebase inicializado correctamente");
 
-/* =======================
-   HELPERS AUTH
-======================= */
 
 export const getCurrentUser = () => auth.currentUser;
 export const getUserEmail = () => auth.currentUser ? auth.currentUser.email : null;
 export const getUid = () => auth.currentUser ? auth.currentUser.uid : null;
 
-/* =======================
-   FUNCIONES PRINCIPALES
-======================= */
 
 // Obtener datos del usuario
 export const getUserData = async () => {
