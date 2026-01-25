@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import Button from './Button';
 import excelIcon from '../assets/excel-icon.png';
-import {getAlumnoData, sendAlumnoData} from "../firebase/firebase"; 
+import { crearEvento, cargarInvitadosCSV } from "../firebase/firebase";
 
 const EventForm = ({ onSave, onCancel }) => {
   const [title, setTitle] = useState('');
@@ -12,6 +12,7 @@ const EventForm = ({ onSave, onCancel }) => {
   const [fileName, setFileName] = useState('');
   const [guestList, setGuestList] = useState([]);
   const [showUploadArea, setShowUploadArea] = useState(false);
+  const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleDrag = (e) => {
@@ -24,7 +25,6 @@ const EventForm = ({ onSave, onCancel }) => {
     }
   };
 
-  // Procesar archivos arrastrados
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -36,7 +36,6 @@ const EventForm = ({ onSave, onCancel }) => {
     }
   };
 
-  // Click en el área de Excel
   const handleExcelClick = () => {
     setShowUploadArea(true);
     setTimeout(() => {
@@ -46,7 +45,6 @@ const EventForm = ({ onSave, onCancel }) => {
     }, 100);
   };
 
-  // Archivo seleccionado por input
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -54,62 +52,47 @@ const EventForm = ({ onSave, onCancel }) => {
     }
   };
 
-  // Leer y procesar el archivo CSV/Excel
   const processFile = (file) => {
-    // Verificar extensión
-    const fileExtension = file.name.split('.').pop().toLowerCase();
-    if (!['csv', 'xlsx', 'xls'].includes(fileExtension)) {
-      alert('Por favor sube un archivo CSV o Excel (.csv, .xlsx, .xls)');
-      return;
-    }
+  const fileExtension = file.name.split('.').pop().toLowerCase();
+  if (!['csv', 'xlsx', 'xls'].includes(fileExtension)) {
+    alert('Por favor sube un archivo CSV o Excel (.csv, .xlsx, .xls)');
+    return;
+  }
 
-    setFileName(file.name);
-    setShowUploadArea(false);
+  setFileName(file.name);
+  setShowUploadArea(false);
 
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      try {
-        const text = e.target.result;
-        const data = parseCSV(text); // Variable donde se encuentran todos los datos 
-        setGuestList(data);
-        
-        // =========== MUY IMPORTANTE ==============
-        // Se trata de la función encargada de traer los datos de la base de datos de 
-        // firestore.
-        
-          getAlumnoData();
-        // =========================================
-
-        // Mostrar confirmación
-        alert(`${data.length} invitados cargados exitosamente desde "${file.name}"`);
-        
-        // Aquí cargamos todos los datos dentro del .csv que hemos pasado 
-        if (data.length > 0) {
-          for(let i = 0; i < data.length; i++){
-            // Espacio para enviar todos los datos a la base de datos de firebase 
-
-            sendAlumnoData(data[i].Escaneo, data[i].Nombre, data[i].QR, data[i].id_evento,title, address, date, time); 
-            
-            // ==================================================================
-
-            console.log('Datos cargados:', data[i].Nombre);
-          }
-        }
-      } catch (error) {
-        console.error('Error al procesar el archivo:', error);
-        alert('Error al leer el archivo. Verifica el formato.');
+  const reader = new FileReader();
+  
+  reader.onload = async (e) => {
+    try {
+      const text = e.target.result;
+      const data = parseCSV(text);
+      
+      // Validar que el CSV tenga al menos el campo "Nombre"
+      if (data.length > 0 && !data[0].Nombre && !data[0].nombre) {
+        alert('El archivo CSV necesita al menos una columna "Nombre" o "nombre"');
+        return;
       }
-    };
-    
-    reader.onerror = () => {
-      alert('Error al leer el archivo');
-    };
-    
-    if (fileExtension === 'csv') {
-      reader.readAsText(file, 'UTF-8');
-    } 
+      
+      setGuestList(data);
+      
+      alert(`${data.length} invitados cargados exitosamente desde "${file.name}"`);
+      
+    } catch (error) {
+      console.error('Error al procesar el archivo:', error);
+      alert('Error al leer el archivo. Verifica el formato.');
+    }
   };
+  
+  reader.onerror = () => {
+    alert('Error al leer el archivo');
+  };
+  
+  if (fileExtension === 'csv') {
+    reader.readAsText(file, 'UTF-8');
+  } 
+};
 
   const parseCSV = (text) => {
     const lines = text.split(/\r\n|\n|\r/);
@@ -118,11 +101,10 @@ const EventForm = ({ onSave, onCancel }) => {
     if (lines.length === 0) return result;
     
     const firstLine = lines[0];
-    const delimiter = firstLine.includes(';') ? ';' : ','; // Se puede usar tanto el ";" como la "," para separar los campos 
+    const delimiter = firstLine.includes(';') ? ';' : ',';
     
     const headers = firstLine.split(delimiter).map(h => h.trim());
     
-    // Procesar cada línea
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
@@ -134,7 +116,6 @@ const EventForm = ({ onSave, onCancel }) => {
         obj[header] = values[index] ? values[index].trim() : '';
       });
       
-      // Solo agregar si tiene algún dato
       if (Object.values(obj).some(value => value !== '')) {
         result.push(obj);
       }
@@ -151,26 +132,72 @@ const EventForm = ({ onSave, onCancel }) => {
     }
   };
 
-  const handleSubmit = () => {
-    // Validate inputs roughly
+  const handleSubmit = async () => {
+    // Validate inputs
     if (!title || !date) {
       alert('Por favor rellena al menos el título y la fecha.');
       return;
     }
 
-    const dateObj = new Date(date + 'T' + (time || '00:00'));
-    const formattedDate = dateObj.toLocaleDateString('es-ES') + ' - ' + (time ? time + 'h' : '');
+    setLoading(true);
 
-    const newEvent = {
-      title, // Nombre del evento
-      address, // Dirección donde se va a hacer el evento
-      date: formattedDate, // Fecha y hora 
-      guestList: guestList.length > 0 ? guestList : null // Lista de los invitados 
-    };
+    try {
+      // 1. Crear el evento primero
+      const eventoCreado = await crearEvento({
+        nombreEvento: title,
+        direccion: address || "",
+        fecha: date,
+        hora: time || "18:00",
+        descripcion: "Evento creado desde formulario",
+        capacidadMaxima: guestList.length > 0 ? (guestList.length * 3) : 100
+      });
 
-    onSave(newEvent);
+      console.log('✅ Evento creado:', eventoCreado.eventoId);
+
+      let resultadosCarga = { exitosos: 0, fallidos: 0 };
+      
+      // 2. Si hay invitados en el CSV, cargarlos
+      if (guestList.length > 0) {
+        resultadosCarga = await cargarInvitadosCSV(eventoCreado.eventoId, guestList);
+        
+        if (resultadosCarga.fallidos > 0) {
+          alert(`Evento creado exitosamente!\nInvitados cargados: ${resultadosCarga.exitosos} exitosos, ${resultadosCarga.fallidos} fallidos.\nRevisa la consola para más detalles.`);
+        } else {
+          alert(`Evento creado exitosamente!\n${resultadosCarga.exitosos} invitados cargados correctamente.`);
+        }
+      } else {
+        alert(`Evento "${title}" creado exitosamente!`);
+      }
+
+      // 3. Preparar datos para el componente padre
+      const dateObj = new Date(date + 'T' + (time || '00:00'));
+      const formattedDate = dateObj.toLocaleDateString('es-ES') + ' - ' + (time ? time + 'h' : '');
+
+      const newEvent = {
+        title,
+        address,
+        date: formattedDate,
+        eventId: eventoCreado.eventoId,
+        guestList: guestList.length > 0 ? guestList : [],
+        estadisticas: {
+          totalInvitados: guestList.length,
+          exitosos: resultadosCarga.exitosos,
+          fallidos: resultadosCarga.fallidos
+        }
+      };
+
+      // 4. Notificar al componente padre
+      onSave(newEvent);
+
+    } catch (error) {
+      console.error('Error al crear evento:', error);
+      alert(`Error al crear evento: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // El resto del código JSX permanece igual
   return (
     <div className="flex-1 p-10 flex flex-col h-full overflow-hidden text-left">
       <div className="bg-[#0f0f1b] rounded-3xl max-w-5xl w-full mx-auto shadow-2xl flex flex-col overflow-hidden max-h-full border border-white/5">
