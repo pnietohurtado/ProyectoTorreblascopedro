@@ -40,6 +40,10 @@ dependencies {
     // ML Kit Barcode Scanning (correcta para usar Barcode)
     implementation ("com.google.mlkit:barcode-scanning:17.2.0")
 
+    // Autenticacion
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation ("com.google.firebase:firebase-auth")
+
     // Escaneo QR
     implementation ("com.google.android.gms:play-services-code-scanner:16.1.0")
     implementation ("com.google.firebase:firebase-firestore:24.10.0")
