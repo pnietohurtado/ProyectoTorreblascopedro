@@ -75,6 +75,9 @@
         android:id="@+id/layoutEstadoAlumno"
         android:layout_width="364dp"
         android:layout_height="155dp"
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
         android:layout_marginTop="32dp"
         app:cardBackgroundColor="@android:color/transparent"

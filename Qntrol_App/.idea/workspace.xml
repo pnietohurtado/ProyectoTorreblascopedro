@@ -23,6 +23,7 @@
       <change beforePath="$PROJECT_DIR$/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/app/build.gradle.kts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/qntrol/Login.java" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/example/qntrol/Login.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/layout/activity_eventos.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/layout/activity_eventos.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/res/layout/activity_main.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/layout/activity_main.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
     </list>
@@ -32,7 +33,10 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[651afa88]" />
+<<<<<<< Updated upstream
   <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[C:\Users\molin\.android\avd\Pixel_7_API_33.avd]" />
+=======
+>>>>>>> Stashed changes
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$">
       <ProjectState />
@@ -112,6 +116,7 @@
     &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
     &quot;com.android.tools.idea.devicemanager.tab&quot;: &quot;Physical&quot;,
     &quot;last_opened_file_path&quot;: &quot;C:/Users/molin/Documents/GitHub/ProyectoTorreblascopedro/Qntrol_App/app&quot;
+<<<<<<< Updated upstream
   }
 }</component>
   <component name="PropertiesComponent"><![CDATA[{
@@ -122,8 +127,10 @@
     "cidr.known.project.marker": "true",
     "com.android.tools.idea.devicemanager.tab": "Physical",
     "last_opened_file_path": "C:/Users/molin/Documents/GitHub/ProyectoTorreblascopedro/Qntrol_App/app"
+=======
+>>>>>>> Stashed changes
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\molin\Documents\GitHub\ProyectoTorreblascopedro\Qntrol_App\app" />
