@@ -65,10 +65,17 @@
         app:layout_top_toBottomOf="@+id/tvAforo"
         tools:layout_editor_absoluteY="175dp" />
 
+<<<<<<< Updated upstream
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardResult"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+=======
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutEstadoAlumno"
+        android:layout_width="364dp"
+        android:layout_height="155dp"
+>>>>>>> Stashed changes
         android:layout_marginTop="32dp"
         app:cardBackgroundColor="@android:color/transparent"
         app:cardCornerRadius="24dp"
@@ -92,12 +99,131 @@
         app:layout_constraintStart_toStartOf="parent">
 
         <ImageView
+<<<<<<< Updated upstream
             android:layout_width="32dp"
             android:layout_height="32dp"
             android:layout_gravity="center"
             android:src="@drawable/ic_qr_code"
             app:tint="@android:color/white" />
     </com.google.android.material.card.MaterialCardView>
+=======
+            android:id="@+id/ivUserIcon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:contentDescription="Icono de usuario"
+            android:src="@drawable/ic_user"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/tvMainName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:fontFamily="@font/inter"
+            android:text="Nombre Alumno"
+            android:textColor="@android:color/white"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="@+id/ivUserIcon"
+            app:layout_constraintEnd_toStartOf="@+id/cb1"
+            app:layout_constraintStart_toEndOf="@+id/ivUserIcon"
+            app:layout_constraintTop_toTopOf="@+id/ivUserIcon" />
+
+        <ImageView
+            android:id="@+id/ivArrow1"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginTop="12dp"
+            android:contentDescription="Flecha indicadora"
+            android:src="@drawable/ic_arrow_right"
+            app:layout_constraintStart_toStartOf="@+id/ivUserIcon"
+            app:layout_constraintTop_toBottomOf="@+id/tvMainName" />
+
+        <ImageView
+            android:id="@+id/ivArrow"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginTop="26dp"
+            android:contentDescription="Flecha indicadora"
+            android:src="@drawable/ic_arrow_right"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/ivArrow1" />
+
+        <TextView
+            android:id="@+id/tvSubName1"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:fontFamily="@font/inter"
+            android:text="Invitado 1"
+            android:textColor="@android:color/white"
+            app:layout_constraintEnd_toStartOf="@+id/cb1"
+            app:layout_constraintStart_toEndOf="@+id/ivArrow1"
+            app:layout_constraintTop_toTopOf="@+id/ivArrow1" />
+
+        <TextView
+            android:id="@+id/tvSubName"
+            android:layout_width="271dp"
+            android:layout_height="19dp"
+            android:layout_marginTop="44dp"
+            android:fontFamily="@font/inter"
+            android:text="Invitado 2"
+            android:textColor="@android:color/white"
+            app:layout_constraintEnd_toStartOf="@+id/cb1"
+            app:layout_constraintHorizontal_bias="1.0"
+            app:layout_constraintStart_toEndOf="@+id/ivArrow"
+            app:layout_constraintTop_toTopOf="@+id/ivArrow1" />
+
+        <TextView
+            android:id="@+id/tvTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:fontFamily="@font/inter"
+            android:text="12/12/2025 - 16:00h"
+            android:textColor="#B0B0B0"
+            android:textSize="11sp"
+            app:layout_constraintStart_toStartOf="@+id/tvSubName1"
+            app:layout_constraintTop_toBottomOf="@+id/tvSubName1" />
+
+        <TextView
+            android:id="@+id/tvTime2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="4dp"
+            android:fontFamily="@font/inter"
+            android:text="12/12/2025 - 16:00h"
+            android:textColor="#B0B0B0"
+            android:textSize="11sp"
+            app:layout_constraintStart_toEndOf="@+id/ivArrow"
+            app:layout_constraintTop_toBottomOf="@+id/tvSubName" />
+
+        <CheckBox
+            android:id="@+id/cb1"
+            android:layout_width="21dp"
+            android:layout_height="20dp"
+            android:layout_marginTop="36dp"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/custom_checkbox"
+            android:button="@null"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <CheckBox
+            android:id="@+id/cb"
+            android:layout_width="21dp"
+            android:layout_height="20dp"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/custom_checkbox"
+            android:button="@null"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/cb1"
+            app:layout_constraintVertical_bias="0.65999997" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+>>>>>>> Stashed changes
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutEstadoVacio"
