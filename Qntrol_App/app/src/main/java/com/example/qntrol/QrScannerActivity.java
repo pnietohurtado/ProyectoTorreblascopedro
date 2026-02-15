@@ -188,7 +188,20 @@ public class QrScannerActivity extends AppCompatActivity {
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     if (!queryDocumentSnapshots.isEmpty()) {
                         DocumentSnapshot alumnoDoc = queryDocumentSnapshots.getDocuments().get(0);
-                        executeTransaction(alumnoDoc.getReference());
+                        String docId = alumnoDoc.getId();
+                        Boolean yaEscaneado = alumnoDoc.getBoolean("Escaneo");
+                        String nombreAlumno = alumnoDoc.getString("Nombre");
+                        
+                        // Fallback si no tiene nombre
+                        if (nombreAlumno == null) {
+                            nombreAlumno = docId;
+                        }
+
+                        if (yaEscaneado != null && yaEscaneado) {
+                            showFeedback(false, "YA INGRESADO\n" + nombreAlumno);
+                        } else {
+                            confirmEntry(docId, nombreAlumno);
+                        }
                     } else {
                         showFeedback(false, "CÓDIGO NO VÁLIDO");
                     }
@@ -198,33 +211,16 @@ public class QrScannerActivity extends AppCompatActivity {
                 });
     }
 
-    private void executeTransaction(com.google.firebase.firestore.DocumentReference userRef) {
-        db.runTransaction(transaction -> {
-            DocumentSnapshot snapshot = transaction.get(userRef);
-            Boolean yaEscaneado = snapshot.getBoolean("Escaneo");
-            String nombreAlumno = snapshot.getString("Nombre");
-            if (nombreAlumno == null) nombreAlumno = snapshot.getId();
-
-            if (yaEscaneado != null && yaEscaneado) {
-                throw new com.google.firebase.firestore.FirebaseFirestoreException(
-                    "YA INGRESADO\n" + nombreAlumno,
-                    com.google.firebase.firestore.FirebaseFirestoreException.Code.ABORTED
-                );
-            }
-
-            transaction.update(userRef, "Escaneo", true);
-            return nombreAlumno;
-        }).addOnSuccessListener(nombre -> {
-            showFeedback(true, "ACCESO PERMITIDO\n" + nombre);
-            updateCapacity();
-        }).addOnFailureListener(e -> {
-            if (e instanceof com.google.firebase.firestore.FirebaseFirestoreException &&
-                ((com.google.firebase.firestore.FirebaseFirestoreException) e).getCode() == com.google.firebase.firestore.FirebaseFirestoreException.Code.ABORTED) {
-                showFeedback(false, e.getMessage());
-            } else {
-                showFeedback(false, "ERROR AL GUARDAR");
-            }
-        });
+    private void confirmEntry(String docId, String nombre) {
+        db.collection("usuarios").document(docId)
+                .update("Escaneo", true)
+                .addOnSuccessListener(aVoid -> {
+                    showFeedback(true, "ACCESO PERMITIDO\n" + nombre);
+                    updateCapacity();
+                })
+                .addOnFailureListener(e -> {
+                    showFeedback(false, "ERROR AL GUARDAR");
+                });
     }
 
     private void updateCapacity() {

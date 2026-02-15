@@ -6,4 +6,6 @@
     <color name="background_dark">#2B2738</color>
     <color name="card_background">#3D384E</color>
     <color name="text_secondary">#9E9E9E</color>
+    <color name="fondo">#2B2738</color>
+    <color name="boton">#973685</color>
 </resources>
