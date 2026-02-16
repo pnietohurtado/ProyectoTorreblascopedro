@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import Button from './Button';
 import excelIcon from '../assets/excel-icon.png';
-import { getAlumnoData, sendAlumnoData, actualizarEvento, cargarInvitadosCSV } from "../firebase/firebase";
+import { getAlumnoData, sendAlumnoData, actualizarEvento, cargarInvitadosCSV, getInvitadosByEvento } from "../firebase/firebase";
+import { sendInvitationsToAll } from "../services/emailService";
 
 const EventList = ({ events, onEditEvent, onCreateClick }) => {
   // Si no hay eventos, usar array vacío
@@ -20,6 +21,7 @@ const EventList = ({ events, onEditEvent, onCreateClick }) => {
   const [fileName, setFileName] = useState('');
   const [guestList, setGuestList] = useState([]);
   const [showUploadArea, setShowUploadArea] = useState(false);
+  const [isSendingEmails, setIsSendingEmails] = useState(false);
   const fileInputRef = useRef(null);
 
   // Función para iniciar la edición de un evento
@@ -582,19 +584,54 @@ const EventList = ({ events, onEditEvent, onCreateClick }) => {
                   </button>
 
                   <button
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
-                      // TODO: Implement send invitation logic
-                      console.log("Send invitation triggered for", event.title);
-                      alert("Implementar lógica de envío de invitaciones");
+                      if (isSendingEmails) return;
+
+                      const confirmar = window.confirm(`¿Estás seguro de que quieres enviar correos a todos los invitados de "${eventTitle}"?`);
+                      if (!confirmar) return;
+
+                      setIsSendingEmails(true);
+                      try {
+                        // 1. Obtener la lista completa de invitados desde Firebase
+                        const invitados = await getInvitadosByEvento(event.id);
+
+                        if (!invitados || invitados.length === 0) {
+                          alert("No hay invitados registrados en este evento.");
+                          setIsSendingEmails(false);
+                          return;
+                        }
+
+                        // 2. Enviar los correos
+                        const result = await sendInvitationsToAll(event, invitados);
+
+                        // 3. Informar del resultado
+                        alert(`Proceso finalizado.\nEnviados con éxito: ${result.success}\nFallidos: ${result.failed}`);
+
+                        if (result.failed > 0) {
+                          console.error("Errores en el envío:", result.errors);
+                        }
+                      } catch (error) {
+                        console.error("Error al procesar el envío masivo:", error);
+                        alert("Error al enviar las invitaciones: " + error.message);
+                      } finally {
+                        setIsSendingEmails(false);
+                      }
                     }}
-                    className="text-white/40 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
-                    title="Send Invitation"
+                    disabled={isSendingEmails}
+                    className={`${isSendingEmails ? 'opacity-20' : 'text-white/40 hover:text-white'} transition-colors p-2 hover:bg-white/10 rounded-lg`}
+                    title={isSendingEmails ? "Enviando..." : "Enviar Invitaciones"}
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="22" y1="2" x2="11" y2="13"></line>
-                      <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                    </svg>
+                    {isSendingEmails ? (
+                      <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                      </svg>
+                    ) : (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                      </svg>
+                    )}
                   </button>
                 </div>
               </div>

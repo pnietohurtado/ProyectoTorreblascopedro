@@ -41,7 +41,7 @@ export const getUserData = async () => {
   const user = getCurrentUser();
   if (!user) return null;
 
-  const userRef = doc(db, "usuarios", user.uid);
+  const userRef = doc(db, "usuarios", user.email);
   const userSnap = await getDoc(userRef);
 
   if (userSnap.exists()) {
@@ -51,17 +51,17 @@ export const getUserData = async () => {
 };
 
 // Obtener todos los eventos del usuario
-export const getEventosUsuario = async (uidParam = null) => {
-  // Usar el UID pasado por parámetro o intentar obtener el del usuario actual
-  const uid = uidParam || getUid();
+export const getEventosUsuario = async (emailParam = null) => {
+  // Usar el email pasado por parámetro o intentar obtener el del usuario actual
+  const email = emailParam || getUserEmail();
 
-  if (!uid) {
-    console.warn("getEventosUsuario: No hay UID disponible");
+  if (!email) {
+    console.warn("getEventosUsuario: No hay Email disponible");
     return null;
   }
 
   try {
-    const eventosRef = collection(db, "usuarios", uid, "eventos");
+    const eventosRef = collection(db, "usuarios", email, "eventos");
     console.log("Fetching events from:", eventosRef.path);
     const eventosSnap = await getDocs(eventosRef);
     console.log("Documents found:", eventosSnap.size);
@@ -110,8 +110,12 @@ export const crearEvento = async (eventoData) => {
   const uid = user.uid;
   const email = user.email;
 
+  if (!email) {
+    throw new Error("El usuario no tiene un email válido para crear el evento.");
+  }
+
   // Crear/Actualizar documento del usuario
-  const userRef = doc(db, "usuarios", uid);
+  const userRef = doc(db, "usuarios", email);
   await setDoc(
     userRef,
     {
@@ -128,7 +132,7 @@ export const crearEvento = async (eventoData) => {
   const eventoId = `${nombreEvento.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
   // Crear documento del evento
-  const eventoRef = doc(db, "usuarios", uid, "eventos", eventoId);
+  const eventoRef = doc(db, "usuarios", email, "eventos", eventoId);
 
   const eventoCompleto = {
     id: eventoId,
@@ -158,8 +162,11 @@ export const crearEvento = async (eventoData) => {
 
 // Agregar invitado a evento (con array de personas en el mismo documento)
 export const agregarInvitado = async (eventoId, invitadoData) => {
-  const uid = getUid();
-  if (!uid) throw new Error("Usuario no autenticado");
+  const user = getCurrentUser();
+  const userEmail = getUserEmail();
+  if (!userEmail) throw new Error("Usuario no autenticado o sin email");
+
+  const uid = user?.uid;
 
   const {
     nombre,
@@ -175,7 +182,7 @@ export const agregarInvitado = async (eventoId, invitadoData) => {
   }
 
   // Verificar que el evento existe
-  const eventoRef = doc(db, "usuarios", uid, "eventos", eventoId);
+  const eventoRef = doc(db, "usuarios", userEmail, "eventos", eventoId);
   const eventoSnap = await getDoc(eventoRef);
 
   if (!eventoSnap.exists()) {
@@ -221,7 +228,7 @@ export const agregarInvitado = async (eventoId, invitadoData) => {
   }
 
   // Crear documento del invitado con array de personas
-  const invitadoRef = doc(db, "usuarios", uid, "eventos", eventoId, "invitados", invitadoId);
+  const invitadoRef = doc(db, "usuarios", userEmail, "eventos", eventoId, "invitados", invitadoId);
 
   const invitadoCompleto = {
     id: invitadoId,
@@ -257,11 +264,11 @@ export const agregarInvitado = async (eventoId, invitadoData) => {
 
 // Escanear una persona específica dentro de un invitado
 export const escanearPersona = async (eventoId, invitadoId, personaId) => {
-  const uid = getUid();
-  if (!uid) throw new Error("Usuario no autenticado");
+  const email = getUserEmail();
+  if (!email) throw new Error("Usuario no autenticado o sin email");
 
-  const invitadoRef = doc(db, "usuarios", uid, "eventos", eventoId, "invitados", invitadoId);
-  const eventoRef = doc(db, "usuarios", uid, "eventos", eventoId);
+  const invitadoRef = doc(db, "usuarios", email, "eventos", eventoId, "invitados", invitadoId);
+  const eventoRef = doc(db, "usuarios", email, "eventos", eventoId);
 
   const invitadoSnap = await getDoc(invitadoRef);
   if (!invitadoSnap.exists()) {
@@ -328,11 +335,11 @@ export const escanearPersona = async (eventoId, invitadoId, personaId) => {
 
 // Escanear todas las personas de un invitado
 export const escanearTodasPersonas = async (eventoId, invitadoId) => {
-  const uid = getUid();
-  if (!uid) throw new Error("Usuario no autenticado");
+  const email = getUserEmail();
+  if (!email) throw new Error("Usuario no autenticado o sin email");
 
-  const invitadoRef = doc(db, "usuarios", uid, "eventos", eventoId, "invitados", invitadoId);
-  const eventoRef = doc(db, "usuarios", uid, "eventos", eventoId);
+  const invitadoRef = doc(db, "usuarios", email, "eventos", eventoId, "invitados", invitadoId);
+  const eventoRef = doc(db, "usuarios", email, "eventos", eventoId);
 
   const invitadoSnap = await getDoc(invitadoRef);
   if (!invitadoSnap.exists()) {
@@ -385,10 +392,10 @@ export const escanearTodasPersonas = async (eventoId, invitadoId) => {
 
 // Carga masiva de invitados desde CSV
 export const cargarInvitadosCSV = async (eventoId, datosCSV) => {
-  const uid = getUid();
-  if (!uid) throw new Error("Usuario no autenticado");
+  const email = getUserEmail();
+  if (!email) throw new Error("Usuario no autenticado o sin email");
 
-  const eventoRef = doc(db, "usuarios", uid, "eventos", eventoId);
+  const eventoRef = doc(db, "usuarios", email, "eventos", eventoId);
   const eventoSnap = await getDoc(eventoRef);
 
   if (!eventoSnap.exists()) {
@@ -447,11 +454,11 @@ export const cargarInvitadosCSV = async (eventoId, datosCSV) => {
 
 // Obtener invitados por evento
 export const getInvitadosByEvento = async (eventoId) => {
-  const uid = getUid();
-  if (!uid) return null;
+  const email = getUserEmail();
+  if (!email) return null;
 
   try {
-    const invitadosRef = collection(db, "usuarios", uid, "eventos", eventoId, "invitados");
+    const invitadosRef = collection(db, "usuarios", email, "eventos", eventoId, "invitados");
     const invitadosSnap = await getDocs(invitadosRef);
 
     return invitadosSnap.docs.map(doc => ({
@@ -466,10 +473,10 @@ export const getInvitadosByEvento = async (eventoId) => {
 
 // Obtener estadísticas de evento
 export const getEstadisticasEvento = async (eventoId) => {
-  const uid = getUid();
-  if (!uid) return null;
+  const email = getUserEmail();
+  if (!email) return null;
 
-  const eventoRef = doc(db, "usuarios", uid, "eventos", eventoId);
+  const eventoRef = doc(db, "usuarios", email, "eventos", eventoId);
   const eventoSnap = await getDoc(eventoRef);
 
   if (!eventoSnap.exists()) {
@@ -522,10 +529,10 @@ export const sendAlumnoData = async (eventoId, alumnoData) => {
 
 // Actualizar evento existente
 export const actualizarEvento = async (eventoId, datosActualizados) => {
-  const uid = getUid();
-  if (!uid) throw new Error("Usuario no autenticado");
+  const email = getUserEmail();
+  if (!email) throw new Error("Usuario no autenticado o sin email");
 
-  const eventoRef = doc(db, "usuarios", uid, "eventos", eventoId);
+  const eventoRef = doc(db, "usuarios", email, "eventos", eventoId);
 
   // Filtrar campos undefined o null que no queramos borrar por accidente
   const datosLimpios = {};

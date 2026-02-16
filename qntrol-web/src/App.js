@@ -50,8 +50,8 @@ function AppContent() {
     async function loadEvents() {
       if (currentUser) {
         setLoading(true);
-        console.log("Loading events for user:", currentUser.uid);
-        const userEvents = await getEventosUsuario(currentUser.uid);
+        console.log("Loading events for user:", currentUser.email);
+        const userEvents = await getEventosUsuario(currentUser.email);
         console.log("Events loaded in App.js:", userEvents);
         if (userEvents) {
           setEvents(userEvents);
@@ -76,8 +76,8 @@ function AppContent() {
       setEvents(prev => [...prev, newEvent]);
     } else {
       // Fallback por si acaso, recargar todo
-      if (currentUser && currentUser.uid) {
-        const userEvents = await getEventosUsuario(currentUser.uid);
+      if (currentUser && currentUser.email) {
+        const userEvents = await getEventosUsuario(currentUser.email);
         if (userEvents) setEvents(userEvents);
       }
     }
