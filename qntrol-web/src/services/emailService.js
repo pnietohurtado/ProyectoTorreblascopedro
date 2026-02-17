@@ -34,6 +34,14 @@ export const sendEventInvitation = async (eventData, guestData) => {
         to_email: guestData.email,
     };
 
+    // LOG DE DEPURACIÓN: Verifica qué se está enviando exactamente
+    console.log("=== ENVIANDO INVITACIÓN VIA EMAILJS ===");
+    console.log("Service ID:", SERVICE_ID);
+    console.log("Template ID:", TEMPLATE_ID);
+    console.log("Template Params:", JSON.stringify(templateParams, null, 2));
+    console.log("Public Key:", PUBLIC_KEY);
+    console.log("======================================");
+
     try {
         const response = await emailjs.send(
             SERVICE_ID,
