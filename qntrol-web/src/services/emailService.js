@@ -1,96 +1,105 @@
 import emailjs from '@emailjs/browser';
 
 // CONFIGURACIÓN DE EMAILJS
-// Deberás reemplazar estos valores con los que obtengas en tu panel de EmailJS
 const SERVICE_ID = 'service_0rt1cqa';
 const TEMPLATE_ID = 'template_czkqqos';
 const PUBLIC_KEY = 'wewgP2tKTSYexpl_f';
 
 /**
- * Envía un correo de invitación a un invitado
- * @param {Object} eventData - Datos del evento (nombreEvento, fecha, hora, direccion)
- * @param {Object} guestData - Datos del invitado (nombre, email)
- * @returns {Promise}
+ * Genera la URL HTTPS pública de la imagen QR (funciona en todos los emails)
  */
-export const sendEventInvitation = async (eventData, guestData) => {
-    // Verificación de credenciales
-    if (SERVICE_ID === 'YOUR_SERVICE_ID' || TEMPLATE_ID === 'YOUR_TEMPLATE_ID' || PUBLIC_KEY === 'YOUR_PUBLIC_KEY') {
-        throw new Error('CONFIGURACIÓN FALTANTE: Debes configurar tus credenciales de EmailJS en src/services/emailService.js. Mira las instrucciones en el archivo.');
-    }
-
-    if (!guestData.email) {
-        console.warn(`El invitado ${guestData.nombre} no tiene email.`);
-        return;
-    }
-
-    // LOS NOMBRES DE ESTAS VARIABLES DEBEN COINCIDIR CON LOS QUE PONGAS EN TU PLANTILLA DE EMAILJS
-    // Ejemplo: {{guest_name}}, {{event_name}}, {{event_date}}, {{event_address}}, {{to_email}}
-    const templateParams = {
-        guest_name: guestData.nombre,
-        event_name: eventData.nombreEvento || eventData.title,
-        event_date: eventData.fecha || eventData.date,
-        event_time: eventData.hora || '',
-        event_address: eventData.direccion || eventData.address,
-        to_email: guestData.email,
-    };
-
-    // LOG DE DEPURACIÓN: Verifica qué se está enviando exactamente
-    console.log("=== ENVIANDO INVITACIÓN VIA EMAILJS ===");
-    console.log("Service ID:", SERVICE_ID);
-    console.log("Template ID:", TEMPLATE_ID);
-    console.log("Template Params:", JSON.stringify(templateParams, null, 2));
-    console.log("Public Key:", PUBLIC_KEY);
-    console.log("======================================");
-
-    try {
-        const response = await emailjs.send(
-            SERVICE_ID,
-            TEMPLATE_ID,
-            templateParams,
-            PUBLIC_KEY
-        );
-        console.log(`Correo enviado con éxito a ${guestData.email}:`, response.status, response.text);
-        return response;
-    } catch (error) {
-        console.error(`Error al enviar correo a ${guestData.email}:`, error);
-        throw error;
-    }
+const getQRImageUrl = (qrText) => {
+  const encoded = encodeURIComponent(qrText);
+  return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=10&data=${encoded}`;
 };
 
 /**
- * Envía correos a una lista de invitados
- * @param {Object} eventData 
- * @param {Array} guestList 
- * @returns {Promise}
+ * Envía un correo de invitación con QR a un invitado.
+ * El template de EmailJS debe contener en su cuerpo:
+ *   <img src="{{qr_image_url}}" width="250" height="250" />
+ */
+export const sendEventInvitation = async (eventData, guestData) => {
+  if (!guestData.email) {
+    console.warn(`Sin email para: ${guestData.nombre}`);
+    return;
+  }
+
+  const qrCode = guestData.qrCode || guestData.personas?.[0]?.qrCode || null;
+  const qrImageUrl = qrCode ? getQRImageUrl(qrCode) : '';
+
+  // Variables que el template de EmailJS puede usar
+  const templateParams = {
+    to_email: guestData.email,
+    guest_name: guestData.nombre,
+    event_name: eventData.nombreEvento || eventData.title || '',
+    event_date: eventData.fecha || eventData.date || '',
+    event_time: eventData.hora || '',
+    event_address: eventData.direccion || eventData.address || '',
+    // URL directa de la imagen QR → úsala en tu template como:
+    // <img src="{{qr_image_url}}" width="250" height="250" />
+    qr_image_url: qrImageUrl,
+    qr_code_text: qrCode || '',
+  };
+
+  console.log(`📧 Enviando a ${guestData.email}`);
+  console.log(`🔗 QR URL: ${qrImageUrl}`);
+
+  try {
+    const response = await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
+    console.log(`✅ Enviado a ${guestData.email}:`, response.status);
+    return response;
+  } catch (error) {
+    console.error(`❌ Error enviando a ${guestData.email}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Envía correos a todos los invitados — un email por persona con su QR propio
  */
 export const sendInvitationsToAll = async (eventData, guestList) => {
-    const emailResults = {
-        success: 0,
-        failed: 0,
-        errors: []
-    };
+  const result = { success: 0, failed: 0, errors: [] };
 
-    // Filtramos invitados que tengan email
-    const guestsWithEmail = guestList.filter(guest => guest.email && guest.email.trim() !== '');
+  for (const guest of guestList) {
+    const personas = guest.personas || [];
+    const personasConEmail = personas.filter(p => p.email && p.email.trim() !== '');
 
-    if (guestsWithEmail.length === 0) {
-        throw new Error('No hay invitados con correo electrónico válido.');
-    }
-
-    // Enviamos los correos uno por uno (o en bloque si EmailJS lo permite en el plan, 
-    // pero generalmente es uno a uno en el plan gratuito)
-    for (const guest of guestsWithEmail) {
+    if (personasConEmail.length > 0) {
+      // Cada persona con email recibe su propio QR
+      for (const persona of personasConEmail) {
         try {
-            await sendEventInvitation(eventData, guest);
-            emailResults.success++;
-        } catch (error) {
-            emailResults.failed++;
-            emailResults.errors.push({ guest: guest.nombre, error: error.message });
+          await sendEventInvitation(eventData, {
+            nombre: persona.nombre,
+            email: persona.email,
+            qrCode: persona.qrCode,
+          });
+          result.success++;
+        } catch (err) {
+          result.failed++;
+          result.errors.push({ guest: persona.nombre, error: err.message });
         }
-
-        // Pequeña pausa opcional para evitar límites de tasa si la lista es muy larga
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(r => setTimeout(r, 350));
+      }
+    } else if (guest.email && guest.email.trim() !== '') {
+      // El titular recibe el QR de la primera persona
+      try {
+        await sendEventInvitation(eventData, {
+          nombre: guest.nombre,
+          email: guest.email,
+          qrCode: personas[0]?.qrCode || guest.qrCode,
+        });
+        result.success++;
+      } catch (err) {
+        result.failed++;
+        result.errors.push({ guest: guest.nombre, error: err.message });
+      }
+      await new Promise(r => setTimeout(r, 350));
     }
+  }
 
-    return emailResults;
+  if (result.success === 0 && result.failed === 0) {
+    throw new Error('No hay invitados con correo electrónico válido.');
+  }
+
+  return result;
 };
