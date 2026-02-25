@@ -1,22 +1,10 @@
 package com.example.qntrol;
 
-import android.content.Intent;
-import android.os.Bundle;
-import android.util.Log;
-import android.widget.Toast;
-
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.android.material.button.MaterialButton;
-import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FirebaseFirestore;
+import android.os.Bundle;
 
 public class Eventos extends AppCompatActivity {
-
-    private MaterialButton botonQR;
-    private final int QR_REQUEST_CODE = 100; // Código para identificar la Activity de QR
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
