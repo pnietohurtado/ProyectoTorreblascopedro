@@ -1,3 +1,4 @@
+import QRCode from 'qrcode';
 import emailjs from '@emailjs/browser';
 
 // CONFIGURACIÓN DE EMAILJS
@@ -6,17 +7,30 @@ const TEMPLATE_ID = 'template_czkqqos';
 const PUBLIC_KEY = 'wewgP2tKTSYexpl_f';
 
 /**
- * Genera la URL HTTPS pública de la imagen QR (funciona en todos los emails)
+ * Genera el código QR en formato Base64 (Data URL)
  */
-const getQRImageUrl = (qrText) => {
-  const encoded = encodeURIComponent(qrText);
-  return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=10&data=${encoded}`;
+const getQRBase64 = async (qrText) => {
+  try {
+    const options = {
+      errorCorrectionLevel: 'H',
+      type: 'image/png',
+      margin: 2,
+      scale: 4,
+      width: 250,
+      color: {
+        dark: '#000000',
+        light: '#ffffff'
+      }
+    };
+    return await QRCode.toDataURL(qrText, options);
+  } catch (err) {
+    console.error('Error generando QR Base64:', err);
+    return '';
+  }
 };
 
 /**
  * Envía un correo de invitación con QR a un invitado.
- * El template de EmailJS debe contener en su cuerpo:
- *   <img src="{{qr_image_url}}" width="250" height="250" />
  */
 export const sendEventInvitation = async (eventData, guestData) => {
   if (!guestData.email) {
@@ -25,7 +39,7 @@ export const sendEventInvitation = async (eventData, guestData) => {
   }
 
   const qrCode = guestData.qrCode || guestData.personas?.[0]?.qrCode || null;
-  const qrImageUrl = qrCode ? getQRImageUrl(qrCode) : '';
+  const qrBase64 = qrCode ? await getQRBase64(qrCode) : '';
 
   // Variables que el template de EmailJS puede usar
   const templateParams = {
@@ -35,14 +49,14 @@ export const sendEventInvitation = async (eventData, guestData) => {
     event_date: eventData.fecha || eventData.date || '',
     event_time: eventData.hora || '',
     event_address: eventData.direccion || eventData.address || '',
-    // URL directa de la imagen QR → úsala en tu template como:
+    // Código QR en base64 → úsala en tu template como:
     // <img src="{{qr_image_url}}" width="250" height="250" />
-    qr_image_url: qrImageUrl,
+    qr_image_url: qrBase64,
     qr_code_text: qrCode || '',
   };
 
   console.log(`📧 Enviando a ${guestData.email}`);
-  console.log(`🔗 QR URL: ${qrImageUrl}`);
+  console.log(`🔗 QR Base64 generado`);
 
   try {
     const response = await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
