@@ -33,10 +33,14 @@ import com.google.mlkit.vision.barcode.BarcodeScanner;
 import com.google.mlkit.vision.barcode.BarcodeScanning;
 import com.google.mlkit.vision.barcode.common.Barcode;
 import com.google.mlkit.vision.common.InputImage;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 public class QrScannerActivity extends AppCompatActivity {
@@ -54,6 +58,7 @@ public class QrScannerActivity extends AppCompatActivity {
     
     private boolean isProcessing = false; // Evitar múltiples escaneos simultáneos
     private FirebaseFirestore db;
+    private FirebaseAuth mAuth;
     private final int MAX_CAPACITY = 1200;
     private final long SCAN_DELAY_MS = 3000; // Tiempo de espera antes de volver a escanear
 
@@ -71,6 +76,7 @@ public class QrScannerActivity extends AppCompatActivity {
         
         scanner = BarcodeScanning.getClient(); // ML Kit Scanner
         db = FirebaseFirestore.getInstance();
+        mAuth = FirebaseAuth.getInstance();
         
         updateCapacity(); // Inicializar aforo
 
@@ -182,54 +188,102 @@ public class QrScannerActivity extends AppCompatActivity {
     }
 
     private void validateQr(String code) {
-        db.collection("usuarios")
-                .whereEqualTo("QR", code)
+        if (mAuth.getCurrentUser() == null) {
+            showFeedback(false, "USUARIO NO IDENTIFICADO");
+            return;
+        }
+
+        String userId = mAuth.getUid();
+
+        // Buscamos en todos los invitados que pertenezcan a este usuario (organizador)
+        db.collectionGroup("invitados")
+                .whereEqualTo("uid", userId)
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
-                    if (!queryDocumentSnapshots.isEmpty()) {
-                        DocumentSnapshot alumnoDoc = queryDocumentSnapshots.getDocuments().get(0);
-                        String docId = alumnoDoc.getId();
-                        Boolean yaEscaneado = alumnoDoc.getBoolean("Escaneo");
-                        String nombreAlumno = alumnoDoc.getString("Nombre");
-                        
-                        // Fallback si no tiene nombre
-                        if (nombreAlumno == null) {
-                            nombreAlumno = docId;
-                        }
+                    Log.d("QrScannerActivity", "Documentos encontrados: " + queryDocumentSnapshots.size());
+                    boolean found = false;
+                    for (DocumentSnapshot guestDoc : queryDocumentSnapshots) {
+                        List<Map<String, Object>> personas = (List<Map<String, Object>>) guestDoc.get("personas");
+                        if (personas != null) {
+                            for (int i = 0; i < personas.size(); i++) {
+                                Map<String, Object> persona = personas.get(i);
+                                String personaQr = (String) persona.get("qrCode");
 
-                        if (yaEscaneado != null && yaEscaneado) {
-                            showFeedback(false, "YA INGRESADO\n" + nombreAlumno);
-                        } else {
-                            confirmEntry(docId, nombreAlumno);
+                                if (code.equals(personaQr)) {
+                                    found = true;
+                                    processPersonaMatch(guestDoc, personas, i);
+                                    return;
+                                }
+                            }
                         }
-                    } else {
+                    }
+                    if (!found) {
+                        Log.w("QrScannerActivity", "Código QR no encontrado en ningún documento: " + code);
                         showFeedback(false, "CÓDIGO NO VÁLIDO");
                     }
                 })
                 .addOnFailureListener(e -> {
-                    showFeedback(false, "ERROR DE RED");
+                    Log.e("QrScannerActivity", "Error crítico en Firebase: ", e);
+                    // Esto nos dirá si es falta de índice o de permisos
+                    showFeedback(false, "ERROR DE RED\n" + e.getMessage());
                 });
     }
 
-    private void confirmEntry(String docId, String nombre) {
-        db.collection("usuarios").document(docId)
-                .update("Escaneo", true)
-                .addOnSuccessListener(aVoid -> {
-                    showFeedback(true, "ACCESO PERMITIDO\n" + nombre);
-                    updateCapacity();
-                })
-                .addOnFailureListener(e -> {
-                    showFeedback(false, "ERROR AL GUARDAR");
-                });
+    private void processPersonaMatch(DocumentSnapshot guestDoc, List<Map<String, Object>> personas, int index) {
+        Map<String, Object> persona = personas.get(index);
+        String nombre = (String) persona.get("nombre");
+        Boolean yaEscaneado = (Boolean) persona.get("escaneado");
+
+        if (yaEscaneado != null && yaEscaneado) {
+            showFeedback(false, "YA INGRESADO\n" + nombre);
+            return;
+        }
+
+        // Marcar como escaneado en el objeto de la lista
+        persona.put("escaneado", true);
+        persona.put("fechaEscaneo", com.google.firebase.Timestamp.now());
+
+        // Referencias para la actualización jerárquica
+        DocumentReference guestRef = guestDoc.getReference();
+        DocumentReference eventRef = guestRef.getParent().getParent();
+
+        // Usamos una transacción para asegurar que los contadores se actualicen correctamente
+        db.runTransaction(transaction -> {
+            // 1. Actualizar la lista de personas dentro del invitado
+            transaction.update(guestRef, "personas", personas);
+            
+            // 2. Incrementar personasEscaneadas en el documento del invitado
+            transaction.update(guestRef, "personasEscaneadas", FieldValue.increment(1));
+            
+            // 3. Incrementar personasEscaneadas en el documento del evento (padre del invitado)
+            transaction.update(eventRef, "personasEscaneadas", FieldValue.increment(1));
+            
+            return null;
+        }).addOnSuccessListener(aVoid -> {
+            showFeedback(true, "ACCESO PERMITIDO\n" + nombre);
+            updateCapacity();
+        }).addOnFailureListener(e -> {
+            Log.e("QrScannerActivity", "Error en transacción", e);
+            showFeedback(false, "ERROR AL GUARDAR");
+        });
     }
 
     private void updateCapacity() {
-        db.collection("usuarios")
-                .whereEqualTo("Escaneo", true)
+        if (mAuth.getCurrentUser() == null) return;
+
+        // Para mostrar el aforo total de todos los eventos de este usuario
+        db.collectionGroup("invitados")
+                .whereEqualTo("uid", mAuth.getUid())
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
-                    int currentCount = queryDocumentSnapshots.size();
-                    tvAforoQr.setText("Aforo: " + currentCount + "/" + MAX_CAPACITY);
+                    long totalEscaneados = 0;
+                    for (DocumentSnapshot doc : queryDocumentSnapshots) {
+                        Long count = doc.getLong("personasEscaneadas");
+                        if (count != null) {
+                            totalEscaneados += count;
+                        }
+                    }
+                    tvAforoQr.setText("Aforo: " + totalEscaneados + "/" + MAX_CAPACITY);
                 });
     }
 
