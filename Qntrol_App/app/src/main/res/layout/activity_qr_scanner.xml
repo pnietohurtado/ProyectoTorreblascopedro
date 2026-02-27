@@ -14,6 +14,41 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
+    <!-- Header with Back Button and Aforo -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/headerScanner"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:background="@color/boton"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageView
+            android:id="@+id/ivBackScanner"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_marginStart="16dp"
+            android:src="@drawable/ic_back"
+            android:contentDescription="Volver"
+            app:tint="@color/white"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
+        <TextView
+            android:id="@+id/tvAforoQr"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/inter_bold"
+            android:text="Aforo: --/--"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
     <!-- Marco encima de la cámara -->
     <View
         android:id="@+id/frameOverlay"
@@ -25,23 +60,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
     
-    <!-- Aforo en la parte superior -->
-    <TextView
-        android:id="@+id/tvAforoQr"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:background="#80000000"
-        android:paddingHorizontal="16dp"
-        android:paddingVertical="8dp"
-        android:text="Aforo: --/1200"
-        android:textColor="@android:color/white"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
     <!-- Overlay de Feedback (Verde/Rojo) -->
     <RelativeLayout
         android:id="@+id/overlayFeedback"
@@ -74,7 +92,7 @@
                 android:text="MENSAJE"
                 android:textColor="@color/white"
                 android:textSize="20sp"
-                android:textStyle="bold" />
+                android:fontFamily="@font/inter_bold" />
         </LinearLayout>
     </RelativeLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

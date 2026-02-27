@@ -3,87 +3,105 @@ package com.example.qntrol;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.android.material.button.MaterialButton;
-import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 public class Eventos extends AppCompatActivity {
 
-    private MaterialButton botonQR;
-    private final int QR_REQUEST_CODE = 100; // Código para identificar la Activity de QR
+    private TextView tvEventName, tvEventTime;
+    private View cvEventCard;
+    private FirebaseFirestore db;
+    private FirebaseAuth mAuth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        ThemeHelper.applyTheme(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_eventos);
 
-        botonQR = findViewById(R.id.btnQR);
+        tvEventName = findViewById(R.id.tvEventName);
+        tvEventTime = findViewById(R.id.tvEventTime);
+        cvEventCard = findViewById(R.id.cvEventCard);
+        db = FirebaseFirestore.getInstance();
+        mAuth = FirebaseAuth.getInstance();
 
-        // Evento del botón para abrir la Activity de escaneo
-        botonQR.setOnClickListener(view -> {
-            Intent intent = new Intent(Eventos.this, QrScannerActivity.class);
-            startActivityForResult(intent, QR_REQUEST_CODE);
-        });
-    }
+        loadEventData();
 
-    // Aquí recibimos el resultado del QR escaneado
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (requestCode == QR_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
-            String codigoLeido = data.getStringExtra("QR_VALUE");
-            if (codigoLeido != null) {
-                Toast.makeText(this, "Leído: " + codigoLeido, Toast.LENGTH_LONG).show(); // DEBUG
-                // Toast.makeText(this, "Leído: " + codigoLeido, Toast.LENGTH_LONG).show(); 
-                // La validación ahora se hace en QrScannerActivity, aquí solo refrescamos si es necesario
-                // procesarResultadoQR(codigoLeido.trim());
+        cvEventCard.setOnClickListener(v -> {
+            String eventId = (String) cvEventCard.getTag();
+            if (eventId != null) {
+                Intent intent = new Intent(Eventos.this, DetalleEvento.class);
+                intent.putExtra("EVENT_NAME", tvEventName.getText().toString());
+                intent.putExtra("EVENT_ID", eventId);
+                startActivity(intent);
             }
-        }
+        });
+
+        ImageView ivSettings = findViewById(R.id.ivSettings);
+        ivSettings.setOnClickListener(v -> showThemeDialog());
     }
 
-    private void procesarResultadoQR(String codigoLeido) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
+    private void loadEventData() {
+        FirebaseUser user = mAuth.getCurrentUser();
+        if (user == null || user.getEmail() == null) {
+            tvEventName.setText("Usuario no identificado");
+            return;
+        }
 
+        String email = user.getEmail();
+
+        // Path: usuarios/{email}/eventos
         db.collection("usuarios")
-                .whereEqualTo("QR", codigoLeido)
+                .document(email)
+                .collection("eventos")
+                .limit(1)
                 .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    if (!queryDocumentSnapshots.isEmpty()) {
-                        DocumentSnapshot alumnoDoc = queryDocumentSnapshots.getDocuments().get(0);
-                        String docId = alumnoDoc.getId();
-                        Boolean yaEscaneado = alumnoDoc.getBoolean("Escaneo");
-                        String nombreAlumno = alumnoDoc.getString("Nombre");
-
-                        if (yaEscaneado != null && yaEscaneado) {
-                            Toast.makeText(this, "¡CUIDADO! " + nombreAlumno + " ya ha ingresado.", Toast.LENGTH_LONG).show();
-                        } else {
-                            confirmarEntrada(docId, nombreAlumno);
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult() != null && !task.getResult().isEmpty()) {
+                        for (QueryDocumentSnapshot document : task.getResult()) {
+                            String name = document.getString("nombreEvento");
+                            String time = document.getString("hora");
+                            String date = document.getString("fecha");
+                            
+                            tvEventName.setText(name != null ? name : "Sin nombre");
+                            tvEventTime.setText((date != null ? date : "--") + " | " + (time != null ? time : "--"));
+                            cvEventCard.setTag(document.getId());
                         }
                     } else {
-                        Toast.makeText(this, "ERROR: Código QR no registrado.", Toast.LENGTH_LONG).show();
+                        tvEventName.setText("No hay eventos disponibles");
+                        Log.d("Firebase", "No events found for user: " + email);
+                        if (task.getException() != null) {
+                            Log.e("Firebase", "Error getting events", task.getException());
+                        }
                     }
-                })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(this, "Error de red: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
     }
 
-    private void confirmarEntrada(String idDocumento, String nombre) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
+    private void showThemeDialog() {
+        String[] themes = {"Tema Claro", "Tema Oscuro"};
+        int checkedItem = ThemeHelper.getSelectedTheme(this) == ThemeHelper.THEME_LIGHT ? 0 : 1;
 
-        db.collection("usuarios").document(idDocumento)
-                .update("Escaneo", true)
-                .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(this, "ACCESO PERMITIDO: " + nombre, Toast.LENGTH_LONG).show();
+        new AlertDialog.Builder(this)
+                .setTitle("Seleccionar Tema")
+                .setSingleChoiceItems(themes, checkedItem, (dialog, which) -> {
+                    if (which == 0) {
+                        ThemeHelper.setTheme(this, ThemeHelper.THEME_LIGHT);
+                    } else {
+                        ThemeHelper.setTheme(this, ThemeHelper.THEME_DARK);
+                    }
+                    dialog.dismiss();
+                    recreate();
                 })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(this, "Error al actualizar base de datos.", Toast.LENGTH_SHORT).show();
-                });
+                .show();
     }
 }

@@ -4,8 +4,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/fondo"
-    tools:context=".MainActivity">
+    android:background="?android:attr/windowBackground"
+    tools:context=".Login">
 
     <ImageView
         android:id="@+id/imageView"
@@ -18,6 +18,18 @@
         app:layout_constraintVertical_bias="0.094"
         app:srcCompat="@drawable/logo" />
 
+    <ImageView
+        android:id="@+id/ivSettings"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:contentDescription="Ajustes"
+        android:src="@drawable/ic_settings"
+        app:tint="?android:attr/textColorPrimary"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <!-- Campo E-mail -->
 
     <TextView
@@ -27,7 +39,7 @@
         android:layout_marginTop="144dp"
         android:fontFamily="@font/inter_semibold"
         android:text="Iniciar sesión"
-        android:textColor="@color/white"
+        android:textColor="?android:attr/textColorPrimary"
         app:layout_constraintBottom_toTopOf="@+id/emailContainer"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -68,8 +80,8 @@
             android:inputType="textEmailAddress"
             android:padding="12dp"
             android:singleLine="true"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#FFFFFF"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textColorHint="?android:attr/textColorSecondary"
             android:textSize="14sp" />
     </LinearLayout>
 
@@ -109,8 +121,8 @@
             android:inputType="textPassword"
             android:padding="12dp"
             android:singleLine="true"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#FFFFFF"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textColorHint="?android:attr/textColorSecondary"
             android:textSize="14sp" />
     </LinearLayout>
 
@@ -121,7 +133,8 @@
         android:layout_width="340dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:backgroundTint="@color/white"
+        android:background="@drawable/bg_google_button"
+        app:backgroundTint="@null"
         android:fontFamily="@font/inter_semibold"
         android:text="Continuar con Google"
         android:textColor="@color/black"
@@ -153,7 +166,7 @@
         android:background="@android:color/transparent"
         android:fontFamily="@font/inter_semibold"
         android:text="He olvidado mi contraseña"
-        android:textColor="@color/white"
+        android:textColor="?android:attr/textColorSecondary"
         android:textSize="8sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
