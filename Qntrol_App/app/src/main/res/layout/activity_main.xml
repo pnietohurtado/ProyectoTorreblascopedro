@@ -117,7 +117,7 @@
     <!-- Botón de Google con espacio para ícono -->
 
     <Button
-        android:id="@+id/button5"
+        android:id="@+id/btnGoogle"
         android:layout_width="340dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
@@ -129,10 +129,10 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.492"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/button" />
+        app:layout_constraintTop_toBottomOf="@+id/btnInicioSesion" />
 
     <Button
-        android:id="@+id/button"
+        android:id="@+id/btnInicioSesion"
         android:layout_width="340dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="28dp"
