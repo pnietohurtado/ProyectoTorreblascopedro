@@ -38,6 +38,9 @@
             android:name=".Home"
             android:exported="false" />
         <activity
+            android:name=".DetalleEvento"
+            android:exported="false" />
+        <activity
             android:name=".Eventos"
             android:exported="false" />
 

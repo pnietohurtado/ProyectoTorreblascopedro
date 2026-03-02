@@ -8,8 +8,8 @@
             <gradient
                 android:type="linear"
                 android:angle="270"
-                android:startColor="#40FFFFFF"
-                android:centerColor="#20FFFFFF"
+                android:startColor="@color/card_gradient_start"
+                android:centerColor="@color/card_gradient_center"
                 android:endColor="#00FFFFFF" />
         </shape>
     </item>
@@ -22,7 +22,7 @@
         android:right="4dp">
         <shape android:shape="rectangle">
             <corners android:radius="8dp" />
-            <solid android:color="#373142" />
+            <solid android:color="@color/card_surface_color" />
         </shape>
     </item>
 

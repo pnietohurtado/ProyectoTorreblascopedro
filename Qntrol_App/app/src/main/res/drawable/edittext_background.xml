@@ -2,8 +2,8 @@
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
 
-    <!-- Fondo del campo: #2B2738 -->
-    <solid android:color="#2B2738" />
+    <!-- Fondo del campo: @color/surface_color -->
+    <solid android:color="@color/surface_color" />
 
     <!-- Borde del campo: #973685 -->
     <stroke
