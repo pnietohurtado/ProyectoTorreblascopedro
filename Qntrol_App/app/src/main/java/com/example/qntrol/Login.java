@@ -6,6 +6,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -22,8 +23,8 @@ public class Login extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        ThemeHelper.applyTheme(this);
         super.onCreate(savedInstanceState);
+        ThemeHelper.applyTheme(this);
         setContentView(R.layout.activity_main);
 
         // Inicializar Firebase Auth
@@ -67,6 +68,8 @@ public class Login extends AppCompatActivity {
         String email = etEmail.getText().toString().trim();
         String password = etPassword.getText().toString().trim();
 
+        Log.d("Login", "Intentando login con: " + email);
+
         // Validaciones básicas
         if (TextUtils.isEmpty(email)) {
             etEmail.setError("Ingresa el email");
@@ -78,9 +81,12 @@ public class Login extends AppCompatActivity {
             return;
         }
 
+        Log.d("Login", "Llamando a Firebase signIn...");
+
         // Login con Firebase
         mAuth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
+                    Log.d("Login", "onComplete. Éxito: " + task.isSuccessful());
                     if (task.isSuccessful()) {
                         Toast.makeText(Login.this,
                                 "Inicio de sesión exitoso",
@@ -91,8 +97,10 @@ public class Login extends AppCompatActivity {
                         finish();
 
                     } else {
+                        Exception e = task.getException();
+                        Log.e("Login", "Error en login", e);
                         Toast.makeText(Login.this,
-                                "Error: " + task.getException().getMessage(),
+                                "Error: " + (e != null ? e.getMessage() : "desconocido"),
                                 Toast.LENGTH_LONG).show();
                     }
                 });

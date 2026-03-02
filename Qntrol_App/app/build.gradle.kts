@@ -42,7 +42,7 @@ dependencies {
 
     // Autenticacion
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
-    implementation ("com.google.firebase:firebase-auth")
+    implementation ("com.google.firebase:firebase-auth:22.3.1")
 
     // Escaneo QR
     implementation ("com.google.android.gms:play-services-code-scanner:16.1.0")
