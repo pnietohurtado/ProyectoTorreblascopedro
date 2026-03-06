@@ -1,0 +1,47 @@
+# ================================
+# Android Studio
+# ================================
+*.iml
+.idea/
+.gradle/
+build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# ================================
+# Android
+# ================================
+*.apk
+*.aab
+*.dex
+*.class
+
+# Generated files
+bin/
+out/
+
+# Keystore files (muy importante NO subirlos)
+*.jks
+*.keystore
+
+# Google Services (si usas Firebase)
+google-services.json
+
+# ================================
+# Logs
+# ================================
+*.log
+
+# ================================
+# OS Files
+# ================================
+.DS_Store
+Thumbs.db
+
+# ================================
+# Gradle Wrapper (NO borrar si trabajas en equipo)
+# ================================
+!gradle-wrapper.jar
+!gradle-wrapper.properties

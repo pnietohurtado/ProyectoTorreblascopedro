@@ -1,4 +1,4 @@
-
+<?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -31,7 +31,7 @@
         android:fontFamily="@font/inter_medium"
         android:paddingHorizontal="16dp"
         android:paddingVertical="8dp"
-        android:text="Aforo: 12/1200"
+        android:text="Aforo: 0/0"
         android:textColor="@android:color/white"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -56,86 +56,18 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tvAforo" />
 
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/layoutEstadoAlumno"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:background="@drawable/bg_card_gradient"
-        android:padding="20dp"
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvInvitados"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
         android:visibility="visible"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+        app:layout_constraintBottom_toTopOf="@+id/btnQR"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/etSearch">
-
-        <ImageView
-            android:id="@+id/ivUserIcon"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/ic_user"
-            android:contentDescription="Icono de usuario"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
-        <TextView
-            android:id="@+id/tvMainName"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:fontFamily="@font/inter"
-            android:text="Pedro Manuel Liébana Beltrán"
-            android:textColor="@android:color/white"
-            android:textStyle="bold"
-            app:layout_constraintBottom_toBottomOf="@+id/ivUserIcon"
-            app:layout_constraintEnd_toStartOf="@+id/cb1"
-            app:layout_constraintStart_toEndOf="@+id/ivUserIcon"
-            app:layout_constraintTop_toTopOf="@+id/ivUserIcon" />
-
-        <ImageView
-            android:id="@+id/ivArrow1"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:layout_marginTop="12dp"
-            android:src="@drawable/ic_arrow_right"
-            android:contentDescription="Flecha indicadora"
-            app:layout_constraintStart_toStartOf="@+id/ivUserIcon"
-            app:layout_constraintTop_toBottomOf="@+id/tvMainName" />
-
-        <TextView
-            android:id="@+id/tvSubName1"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:fontFamily="@font/inter"
-            android:text="Pedro Manuel Liébana Rubio"
-            android:textColor="@android:color/white"
-            app:layout_constraintEnd_toStartOf="@+id/cb1"
-            app:layout_constraintStart_toEndOf="@+id/ivArrow1"
-            app:layout_constraintTop_toTopOf="@+id/ivArrow1" />
-
-        <TextView
-            android:id="@+id/tvTime"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:fontFamily="@font/inter"
-            android:text="12/12/2025 - 16:00h"
-            android:textColor="#B0B0B0"
-            android:textSize="11sp"
-            app:layout_constraintStart_toStartOf="@+id/tvSubName1"
-            app:layout_constraintTop_toBottomOf="@+id/tvSubName1" />
-
-        <CheckBox
-            android:id="@+id/cb1"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="@drawable/custom_checkbox"
-            android:button="@null"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
+        app:layout_constraintTop_toBottomOf="@+id/etSearch" />
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutEstadoVacio"
@@ -143,18 +75,19 @@
         android:layout_height="200dp"
         android:background="@drawable/bg_card_gradient"
         android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@+id/etSearch"
         app:layout_constraintBottom_toTopOf="@+id/btnQR"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintTop_toBottomOf="@+id/etSearch">
 
         <TextView
+            android:id="@+id/tvEmptyMessage"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_margin="32dp"
             android:fontFamily="@font/inter_medium"
             android:gravity="center"
-            android:text="Busca un alumno y mira información relevante sobre él."
+            android:text="No hay alumnos para mostrar"
             android:textColor="#B0B0B0"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
@@ -180,6 +113,5 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         android:contentDescription="Escanear código QR"/>
-
 
 </androidx.constraintlayout.widget.ConstraintLayout>
