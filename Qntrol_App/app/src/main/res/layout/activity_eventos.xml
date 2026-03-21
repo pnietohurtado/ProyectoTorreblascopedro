@@ -19,15 +19,16 @@
         android:id="@+id/tvTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Mis Eventos"
-        android:textColor="@color/white"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:fontFamily="@font/inter_bold"
-        app2:layout_constraintBottom_toBottomOf="@+id/headerBackground"
-        app2:layout_constraintEnd_toEndOf="parent"
-        app2:layout_constraintStart_toStartOf="parent"
-        app2:layout_constraintTop_toTopOf="@+id/headerBackground" />
+        android:layout_marginTop="16dp"
+        android:background="@drawable/bg_dashed_badge"
+        android:fontFamily="@font/inter_medium"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp"
+        android:text="Aforo: 0/0"
+        android:textColor="@android:color/white"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tvTitle" />
 
     <ImageView
         android:id="@+id/ivSettings"
@@ -41,56 +42,62 @@
         app2:layout_constraintEnd_toEndOf="parent"
         app2:layout_constraintTop_toTopOf="@+id/headerBackground" />
 
-    <!-- Event Card -->
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/cvEventCard"
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvInvitados"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="20dp"
-        android:layout_marginTop="32dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
+        android:visibility="visible"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+        app:layout_constraintBottom_toTopOf="@+id/btnQR"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/etSearch" />
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutEstadoVacio"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
         android:background="@drawable/bg_card_gradient"
-        android:padding="20dp"
-        app2:layout_constraintEnd_toEndOf="parent"
-        app2:layout_constraintStart_toStartOf="parent"
-        app2:layout_constraintTop_toBottomOf="@+id/headerBackground">
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@+id/btnQR"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/etSearch">
 
         <TextView
-            android:id="@+id/tvEventName"
+            android:id="@+id/tvEmptyMessage"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="12dp"
-            android:text="Cargando evento..."
-            android:textColor="?android:attr/textColorPrimary"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:fontFamily="@font/inter_semibold"
-            app2:layout_constraintEnd_toStartOf="@+id/ivGoArrow"
-            app2:layout_constraintStart_toStartOf="parent"
-            app2:layout_constraintTop_toTopOf="parent" />
-
-        <TextView
-            android:id="@+id/tvEventTime"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="--:--"
-            android:textColor="?android:attr/textColorSecondary"
-            android:textSize="14sp"
-            android:fontFamily="@font/inter"
-            app2:layout_constraintEnd_toStartOf="@+id/ivGoArrow"
-            app2:layout_constraintStart_toStartOf="parent"
-            app2:layout_constraintTop_toBottomOf="@+id/tvEventName" />
-
-        <ImageView
-            android:id="@+id/ivGoArrow"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:src="@drawable/ic_arrow_right"
-            app2:tint="@color/accent_stroke"
-            app2:layout_constraintBottom_toBottomOf="parent"
-            app2:layout_constraintEnd_toEndOf="parent"
-            app2:layout_constraintTop_toTopOf="parent" />
-
+            android:layout_margin="32dp"
+            android:fontFamily="@font/inter_medium"
+            android:gravity="center"
+            android:text="No hay alumnos para mostrar"
+            android:textColor="#B0B0B0"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
     </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnQR"
+        android:layout_width="wrap_content"
+        android:layout_height="70dp"
+        android:layout_marginBottom="24dp"
+        android:background="@drawable/bg_search_input"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:padding="0dp"
+        app:backgroundTint="@null"
+        app:icon="@drawable/ic_qr_code"
+        app:iconSize="32dp"
+        app:iconGravity="textStart"
+        app:iconPadding="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:contentDescription="Escanear código QR"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

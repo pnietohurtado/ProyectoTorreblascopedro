@@ -26,7 +26,7 @@
         tools:targetApi="31">
 
         <activity
-            android:name=".Login"
+            android:name=".Eventos"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -42,6 +42,7 @@
             android:exported="false" />
         <activity
             android:name=".Eventos"
+            android:name=".Login"
             android:exported="false" />
 
         <meta-data
@@ -54,7 +55,6 @@
             android:name=".QrScannerActivity"
             android:exported="false"
             android:theme="@style/Theme.AppCompat.NoActionBar" />
-
     </application>
 
 </manifest>

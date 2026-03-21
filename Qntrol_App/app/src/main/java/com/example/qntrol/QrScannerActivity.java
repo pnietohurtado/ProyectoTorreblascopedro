@@ -8,8 +8,10 @@ import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.OptIn;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ExperimentalGetImage;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
@@ -151,6 +153,8 @@ public class QrScannerActivity extends AppCompatActivity {
         }, ContextCompat.getMainExecutor(this));
     }
 
+    // Analizar cada frame de la cámara
+    @OptIn(markerClass = ExperimentalGetImage.class)
     private void analyzeImage(ImageProxy imageProxy) {
         if (imageProxy.getImage() != null) {
             InputImage image = InputImage.fromMediaImage(
