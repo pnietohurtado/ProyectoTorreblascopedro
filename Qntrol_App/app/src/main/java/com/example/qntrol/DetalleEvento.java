@@ -17,13 +17,17 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.button.MaterialButton;
+import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.ListenerRegistration;
 
-import java.util.HashMap;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class DetalleEvento extends AppCompatActivity {
@@ -34,12 +38,17 @@ public class DetalleEvento extends AppCompatActivity {
     private CheckBox cb1, cb2;
     private View layoutEstadoAlumno, layoutEstadoVacio;
     private ImageView ivBack;
+    private View ivArrow2; 
     
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
     private String eventId, eventName, userEmail;
     
     private final int QR_REQUEST_CODE = 100;
+    private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
+    
+    private List<DocumentSnapshot> allGuestsList = new ArrayList<>();
+    private ListenerRegistration guestsListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,12 +76,13 @@ public class DetalleEvento extends AppCompatActivity {
         
         tvMainName = findViewById(R.id.tvMainName);
         tvSubName1 = findViewById(R.id.tvSubName1);
-        tvSubName2 = findViewById(R.id.tvSubName); // Nota: ID en el layout es tvSubName
+        tvSubName2 = findViewById(R.id.tvSubName); 
         tvTime1 = findViewById(R.id.tvTime);
         tvTime2 = findViewById(R.id.tvTime2);
+        ivArrow2 = findViewById(R.id.ivArrow);
         
         cb1 = findViewById(R.id.cb1);
-        cb2 = findViewById(R.id.cb); // Nota: ID en el layout es cb
+        cb2 = findViewById(R.id.cb); 
 
         // Intent data
         eventName = getIntent().getStringExtra("EVENT_NAME");
@@ -82,10 +92,9 @@ public class DetalleEvento extends AppCompatActivity {
 
         ivBack.setOnClickListener(v -> finish());
         
+        startRealtimeSync(); 
         setupSearch();
-        updateAforo();
 
-        // Evento del botón para abrir la Activity de escaneo
         botonQR.setOnClickListener(view -> {
             Intent intent = new Intent(DetalleEvento.this, QrScannerActivity.class);
             intent.putExtra("EVENT_ID", eventId);
@@ -96,7 +105,36 @@ public class DetalleEvento extends AppCompatActivity {
         ivSettings.setOnClickListener(v -> showThemeDialog());
     }
 
-    // Método para buscar un Alumno
+    private void startRealtimeSync() {
+        if (userEmail == null || eventId == null) return;
+
+        // Limpiar listener previo si existe
+        if (guestsListener != null) guestsListener.remove();
+
+        guestsListener = db.collection("usuarios")
+                .document(userEmail)
+                .collection("eventos")
+                .document(eventId)
+                .collection("invitados")
+                .addSnapshotListener((snapshots, e) -> {
+                    if (e != null) {
+                        Log.e("DetalleEvento", "Firestore listen failed", e);
+                        return;
+                    }
+
+                    if (snapshots != null) {
+                        allGuestsList = snapshots.getDocuments();
+                        updateAforoDisplay();
+                        
+                        // Si hay una búsqueda activa, refresca los datos en pantalla
+                        String currentQuery = etSearch.getText().toString().trim().toLowerCase();
+                        if (!currentQuery.isEmpty()) {
+                            buscarAlumnoLocal(currentQuery);
+                        }
+                    }
+                });
+    }
+
     private void setupSearch() {
         etSearch.addTextChangedListener(new TextWatcher() {
             @Override
@@ -104,12 +142,12 @@ public class DetalleEvento extends AppCompatActivity {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                String query = s.toString().trim();
+                String query = s.toString().trim().toLowerCase();
                 if (query.isEmpty()) {
                     layoutEstadoAlumno.setVisibility(View.GONE);
                     layoutEstadoVacio.setVisibility(View.VISIBLE);
                 } else {
-                    buscarAlumno(query);
+                    buscarAlumnoLocal(query);
                 }
             }
 
@@ -118,49 +156,81 @@ public class DetalleEvento extends AppCompatActivity {
         });
     }
 
-    private void buscarAlumno(String nombre) {
-        if (userEmail == null || eventId == null) return;
+    private void buscarAlumnoLocal(String query) {
+        DocumentSnapshot matchedDoc = null;
+        for (DocumentSnapshot doc : allGuestsList) {
+            String nombre = doc.getString("nombre");
+            if (nombre != null && nombre.toLowerCase().contains(query)) {
+                matchedDoc = doc;
+                break;
+            }
+        }
 
-        db.collection("usuarios")
-                .document(userEmail)
-                .collection("eventos")
-                .document(eventId)
-                .collection("invitados")
-                .whereGreaterThanOrEqualTo("nombre", nombre)
-                .whereLessThanOrEqualTo("nombre", nombre + "\uf8ff")
-                .limit(1)
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    if (!queryDocumentSnapshots.isEmpty()) {
-                        QueryDocumentSnapshot doc = (QueryDocumentSnapshot) queryDocumentSnapshots.getDocuments().get(0);
-                        mostrarAlumno(doc);
-                    } else {
-                        layoutEstadoAlumno.setVisibility(View.GONE);
-                        layoutEstadoVacio.setVisibility(View.VISIBLE);
-                    }
-                });
+        if (matchedDoc != null) {
+            mostrarAlumno(matchedDoc);
+        } else {
+            layoutEstadoAlumno.setVisibility(View.GONE);
+            layoutEstadoVacio.setVisibility(View.VISIBLE);
+        }
     }
 
-    //
-    private void mostrarAlumno(QueryDocumentSnapshot doc) {
+    @SuppressWarnings("unchecked")
+    private void mostrarAlumno(DocumentSnapshot doc) {
         layoutEstadoAlumno.setVisibility(View.VISIBLE);
         layoutEstadoVacio.setVisibility(View.GONE);
 
-        String nombre = doc.getString("nombre");
-        boolean asistencia1 = doc.getBoolean("asistencia1") != null && doc.getBoolean("asistencia1");
-        boolean asistencia2 = doc.getBoolean("asistencia2") != null && doc.getBoolean("asistencia2");
+        String nombreTitular = doc.getString("nombre");
+        tvMainName.setText(nombreTitular);
+
+        List<Map<String, Object>> personas = (List<Map<String, Object>>) doc.get("personas");
         
-        tvMainName.setText(nombre);
-        cb1.setChecked(asistencia1);
-        cb2.setChecked(asistencia2);
+        // Reset listeners
+        cb1.setOnCheckedChangeListener(null);
+        cb2.setOnCheckedChangeListener(null);
 
-        // Actualiza listeners
-        cb1.setOnCheckedChangeListener((buttonView, isChecked) -> updateAsistencia(doc.getId(), "asistencia1", isChecked));
-        cb2.setOnCheckedChangeListener((buttonView, isChecked) -> updateAsistencia(doc.getId(), "asistencia2", isChecked));
+        if (personas != null && !personas.isEmpty()) {
+            // Invitado 1
+            Map<String, Object> p1 = personas.get(0);
+            String name1 = (String) p1.get("nombre");
+            Boolean esc1 = (Boolean) p1.get("escaneado");
+            Timestamp time1 = (Timestamp) p1.get("fechaEscaneo");
+
+            tvSubName1.setText(name1 != null ? name1 : "Invitado 1");
+            cb1.setChecked(esc1 != null && esc1);
+            tvTime1.setText(time1 != null ? dateFormat.format(time1.toDate()) : "No registrado");
+
+            // Invitado 2
+            if (personas.size() >= 2) {
+                Map<String, Object> p2 = personas.get(1);
+                String name2 = (String) p2.get("nombre");
+                Boolean esc2 = (Boolean) p2.get("escaneado");
+                Timestamp time2 = (Timestamp) p2.get("fechaEscaneo");
+
+                tvSubName2.setText(name2 != null ? name2 : "Invitado 2");
+                cb2.setChecked(esc2 != null && esc2);
+                tvTime2.setText(time2 != null ? dateFormat.format(time2.toDate()) : "No registrado");
+                
+                toggleGuest2Visibility(true);
+            } else {
+                toggleGuest2Visibility(false);
+            }
+        }
+
+        // Set listeners for manual update
+        cb1.setOnCheckedChangeListener((buttonView, isChecked) -> updateAsistenciaManual(doc.getId(), 0, isChecked));
+        cb2.setOnCheckedChangeListener((buttonView, isChecked) -> updateAsistenciaManual(doc.getId(), 1, isChecked));
     }
 
-    // Método que actualiza el aforo (sirve para cuando se escanea el QR)
-    private void updateAsistencia(String alumnoId, String campo, boolean valor) {
+    private void toggleGuest2Visibility(boolean visible) {
+        int visibility = visible ? View.VISIBLE : View.GONE;
+        tvSubName2.setVisibility(visibility);
+        tvTime2.setVisibility(visibility);
+        cb2.setVisibility(visibility);
+        ivArrow2.setVisibility(visibility);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void updateAsistenciaManual(String docId, int index, boolean isChecked) {
         if (userEmail == null || eventId == null) return;
 
         db.collection("usuarios")
@@ -168,34 +238,39 @@ public class DetalleEvento extends AppCompatActivity {
                 .collection("eventos")
                 .document(eventId)
                 .collection("invitados")
-                .document(alumnoId)
-                .update(campo, valor)
-                .addOnSuccessListener(aVoid -> updateAforo());
-    }
-
-    // Método para contar el aforo
-    private void updateAforo() {
-        if (userEmail == null || eventId == null) return;
-
-        // Cuenta por alumno, 2 invitados
-        db.collection("usuarios")
-                .document(userEmail)
-                .collection("eventos")
-                .document(eventId)
-                .collection("invitados")
+                .document(docId)
                 .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    int total = queryDocumentSnapshots.size();
-                    int presentes = 0;
-                    for (DocumentSnapshot doc : queryDocumentSnapshots) {
-                        if (doc.getBoolean("asistencia1") != null && doc.getBoolean("asistencia1")) presentes++;
-                        if (doc.getBoolean("asistencia2") != null && doc.getBoolean("asistencia2")) presentes++;
+                .addOnSuccessListener(documentSnapshot -> {
+                    List<Map<String, Object>> personas = (List<Map<String, Object>>) documentSnapshot.get("personas");
+                    if (personas != null && index < personas.size()) {
+                        Map<String, Object> persona = personas.get(index);
+                        persona.put("escaneado", isChecked);
+                        persona.put("fechaEscaneo", isChecked ? Timestamp.now() : null);
+
+                        documentSnapshot.getReference().update("personas", personas)
+                                .addOnSuccessListener(aVoid -> {
+                                    // El SnapshotListener se encargará de refrescar la UI automáticamente
+                                });
                     }
-                    tvAforo.setText("Aforo: " + presentes + "/" + (total * 2)); // Asumiendo que son 2 invitados
                 });
     }
 
-    // Método para cambiar el tema
+    private void updateAforoDisplay() {
+        int total = 0;
+        int presentes = 0;
+        for (DocumentSnapshot doc : allGuestsList) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> personas = (List<Map<String, Object>>) doc.get("personas");
+            if (personas != null) {
+                total += personas.size();
+                for (Map<String, Object> p : personas) {
+                    if (p.get("escaneado") != null && (boolean) p.get("escaneado")) presentes++;
+                }
+            }
+        }
+        tvAforo.setText("Aforo: " + presentes + "/" + total);
+    }
+
     private void showThemeDialog() {
         String[] themes = {"Tema Claro", "Tema Oscuro"};
         int checkedItem = ThemeHelper.getSelectedTheme(this) == ThemeHelper.THEME_LIGHT ? 0 : 1;
@@ -211,15 +286,17 @@ public class DetalleEvento extends AppCompatActivity {
                 .show();
     }
 
-    // Saca el resultado del QR
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == QR_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
-            String codigoLeido = data.getStringExtra("QR_VALUE");
-            if (codigoLeido != null) {
-                etSearch.setText(codigoLeido);
-            }
+        // El SnapshotListener ya se encarga de refrescar si el escáner cambió datos
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (guestsListener != null) {
+            guestsListener.remove();
         }
     }
 }

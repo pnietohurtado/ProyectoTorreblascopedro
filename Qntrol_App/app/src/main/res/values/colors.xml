@@ -19,4 +19,5 @@
     <color name="google_btn_stroke">@color/boton_oscuro</color>
     <color name="card_gradient_start">#80973685</color>
     <color name="card_gradient_center">#30973685</color>
+    <color name="attendance_accent">@color/boton</color>
 </resources>

@@ -55,6 +55,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="@+id/headerBackground" />
 
+    <!-- Aforo Badge -->
     <TextView
         android:id="@+id/tvAforo"
         android:layout_width="wrap_content"
@@ -64,16 +65,17 @@
         android:fontFamily="@font/inter_medium"
         android:paddingHorizontal="16dp"
         android:paddingVertical="8dp"
-        android:text="Aforo: 12/1200"
+        android:text="Aforo: 0/0"
         android:textColor="?android:attr/textColorPrimary"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/headerBackground" />
 
+    <!-- Search Section -->
     <EditText
         android:id="@+id/etSearch"
         android:layout_width="0dp"
-        android:layout_height="48dp"
+        android:layout_height="54dp"
         android:layout_marginHorizontal="20dp"
         android:layout_marginTop="24dp"
         android:background="@drawable/bg_search_input"
@@ -84,16 +86,18 @@
         android:importantForAutofill="no"
         android:inputType="text"
         android:paddingHorizontal="16dp"
+        android:textColor="?android:attr/textColorPrimary"
         android:textColorHint="?android:attr/textColorSecondary"
         android:textSize="16sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tvAforo" />
 
+    <!-- Student Detail Card -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutEstadoAlumno"
         android:layout_width="0dp"
-        android:layout_height="180dp"
+        android:layout_height="wrap_content"
         android:layout_marginHorizontal="20dp"
         android:layout_marginTop="32dp"
         android:background="@drawable/bg_card_gradient"
@@ -109,6 +113,7 @@
             android:layout_height="24dp"
             android:contentDescription="Icono de usuario"
             android:src="@drawable/ic_user"
+            app:tint="@color/attendance_accent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
@@ -122,29 +127,30 @@
             android:textColor="?android:attr/textColorPrimary"
             android:textStyle="bold"
             app:layout_constraintBottom_toBottomOf="@+id/ivUserIcon"
-            app:layout_constraintEnd_toStartOf="@+id/cb1"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toEndOf="@+id/ivUserIcon"
             app:layout_constraintTop_toTopOf="@+id/ivUserIcon" />
 
+        <View
+            android:id="@+id/separator"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="16dp"
+            android:alpha="0.1"
+            android:background="?android:attr/textColorPrimary"
+            app:layout_constraintTop_toBottomOf="@+id/ivUserIcon" />
+
+        <!-- Guest 1 -->
         <ImageView
             android:id="@+id/ivArrow1"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:layout_marginTop="12dp"
-            android:contentDescription="Flecha indicadora"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginTop="16dp"
+            android:contentDescription="Flecha"
             android:src="@drawable/ic_arrow_right"
-            app:layout_constraintStart_toStartOf="@+id/ivUserIcon"
-            app:layout_constraintTop_toBottomOf="@+id/tvMainName" />
-
-        <ImageView
-            android:id="@+id/ivArrow"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:layout_marginTop="26dp"
-            android:contentDescription="Flecha indicadora"
-            android:src="@drawable/ic_arrow_right"
+            app:tint="?android:attr/textColorSecondary"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/ivArrow1" />
+            app:layout_constraintTop_toBottomOf="@+id/separator" />
 
         <TextView
             android:id="@+id/tvSubName1"
@@ -159,112 +165,118 @@
             app:layout_constraintTop_toTopOf="@+id/ivArrow1" />
 
         <TextView
-            android:id="@+id/tvSubName"
-            android:layout_width="271dp"
-            android:layout_height="19dp"
-            android:layout_marginTop="44dp"
-            android:fontFamily="@font/inter"
-            android:text="Invitado 2"
-            android:textColor="?android:attr/textColorPrimary"
-            app:layout_constraintEnd_toStartOf="@+id/cb1"
-            app:layout_constraintHorizontal_bias="1.0"
-            app:layout_constraintStart_toEndOf="@+id/ivArrow"
-            app:layout_constraintTop_toTopOf="@+id/ivArrow1" />
-
-        <TextView
             android:id="@+id/tvTime"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:fontFamily="@font/inter"
-            android:text="12/12/2025 - 16:00h"
+            android:text="No registrado"
             android:textColor="?android:attr/textColorSecondary"
             android:textSize="11sp"
             app:layout_constraintStart_toStartOf="@+id/tvSubName1"
             app:layout_constraintTop_toBottomOf="@+id/tvSubName1" />
 
+        <CheckBox
+            android:id="@+id/cb1"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:background="@drawable/custom_checkbox"
+            android:button="@null"
+            app:layout_constraintBottom_toBottomOf="@+id/tvTime"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/tvSubName1" />
+
+        <!-- Guest 2 -->
+        <ImageView
+            android:id="@+id/ivArrow"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginTop="24dp"
+            android:contentDescription="Flecha"
+            android:src="@drawable/ic_arrow_right"
+            app:tint="?android:attr/textColorSecondary"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/tvTime" />
+
+        <TextView
+            android:id="@+id/tvSubName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:fontFamily="@font/inter"
+            android:text="Invitado 2"
+            android:textColor="?android:attr/textColorPrimary"
+            app:layout_constraintEnd_toStartOf="@+id/cb"
+            app:layout_constraintStart_toEndOf="@+id/ivArrow"
+            app:layout_constraintTop_toTopOf="@+id/ivArrow" />
+
         <TextView
             android:id="@+id/tvTime2"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
             android:layout_marginTop="4dp"
             android:fontFamily="@font/inter"
-            android:text="12/12/2025 - 16:00h"
+            android:text="No registrado"
             android:textColor="?android:attr/textColorSecondary"
             android:textSize="11sp"
-            app:layout_constraintStart_toEndOf="@+id/ivArrow"
+            app:layout_constraintStart_toStartOf="@+id/tvSubName"
             app:layout_constraintTop_toBottomOf="@+id/tvSubName" />
 
         <CheckBox
-            android:id="@+id/cb1"
-            android:layout_width="21dp"
-            android:layout_height="20dp"
-            android:layout_marginTop="40dp"
-            android:layout_marginEnd="4dp"
-            android:background="@drawable/custom_checkbox"
-            android:button="@null"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
-        <CheckBox
             android:id="@+id/cb"
-            android:layout_width="21dp"
-            android:layout_height="20dp"
-            android:layout_marginEnd="4dp"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
             android:background="@drawable/custom_checkbox"
             android:button="@null"
-            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintBottom_toBottomOf="@+id/tvTime2"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/cb1"
-            app:layout_constraintVertical_bias="0.65999997" />
+            app:layout_constraintTop_toTopOf="@+id/tvSubName" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <!-- Empty State -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutEstadoVacio"
         android:layout_width="0dp"
-        android:layout_height="180dp"
+        android:layout_height="wrap_content"
         android:layout_marginHorizontal="20dp"
         android:layout_marginTop="32dp"
         android:background="@drawable/bg_card_gradient"
+        android:padding="32dp"
         android:visibility="visible"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/etSearch">
 
         <TextView
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_margin="32dp"
             android:fontFamily="@font/inter_medium"
             android:gravity="center"
             android:text="Busca un alumno y mira información relevante sobre él."
             android:textColor="?android:attr/textColorSecondary"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <!-- QR Button -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnQR"
-        android:layout_width="wrap_content"
-        android:layout_height="70dp"
-        android:layout_marginBottom="24dp"
-        android:background="@drawable/bg_qr_button"
+        android:layout_width="86dp"
+        android:layout_height="76dp"
+        android:layout_marginBottom="32dp"
+        android:background="@drawable/bg_search_input"
         android:insetTop="0dp"
         android:insetBottom="0dp"
         android:padding="0dp"
         app:backgroundTint="@null"
         app:icon="@drawable/ic_qr_code"
-        app:iconTint="@color/white"
-        app:iconSize="32dp"
+        app:iconSize="36dp"
         app:iconGravity="textStart"
         app:iconPadding="0dp"
+        app:iconTint="@color/white"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        android:contentDescription="Escanear código QR"/>
+        android:contentDescription="Escanear QR" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

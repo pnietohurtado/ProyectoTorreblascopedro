@@ -13,4 +13,5 @@
     <color name="google_btn_stroke">#FFFFFF</color>
     <color name="card_gradient_start">#40FFFFFF</color>
     <color name="card_gradient_center">#20FFFFFF</color>
+    <color name="attendance_accent">@color/white</color>
 </resources>
