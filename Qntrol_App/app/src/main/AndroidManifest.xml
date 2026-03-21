@@ -27,6 +27,16 @@
 
         <activity
             android:name=".Eventos"
+            android:exported="false" />
+        <activity
+            android:name=".Home"
+            android:exported="false" />
+        <activity
+            android:id="@+id/activity_detalle_evento"
+            android:name=".DetalleEvento"
+            android:exported="false" />
+        <activity
+            android:name=".Login"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -34,16 +44,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".Home"
-            android:exported="false" />
-        <activity
-            android:name=".DetalleEvento"
-            android:exported="false" />
-        <activity
-            android:name=".Eventos"
-            android:name=".Login"
-            android:exported="false" />
 
         <meta-data
             android:name="preloaded_fonts"

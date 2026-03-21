@@ -5,38 +5,24 @@ import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
-import android.view.View;
-import android.widget.ImageView;
-import android.widget.TextView;
-import android.widget.Toast;
-
-import androidx.appcompat.app.AlertDialog;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.button.MaterialButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QueryDocumentSnapshot;
-
-public class Eventos extends AppCompatActivity {
-
-    private TextView tvEventName, tvEventTime;
-    private View cvEventCard;
-    private FirebaseFirestore db;
-    private FirebaseAuth mAuth;
-import com.google.android.material.button.MaterialButton;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
@@ -46,28 +32,30 @@ import java.util.Map;
 
 public class Eventos extends AppCompatActivity {
 
-    private MaterialButton botonQR;
     private final int QR_REQUEST_CODE = 100;
 
-    // Elementos del layout
+    // View Elements
     private TextView tvTitle, tvAforo, tvEmptyMessage;
     private EditText etSearch;
     private RecyclerView rvInvitados;
     private View layoutEstadoVacio;
+    private MaterialButton botonQR;
+    private ImageView ivSettings;
 
-    // Adaptador y listas
+    // Firebase
+    private FirebaseFirestore db;
+    private FirebaseAuth mAuth;
+
+    // IDs (Fixed as per original)
+    private String organizadorUid = "aOgugK6oqAYzLTF8vMb9qng2g9I2";
+    private String eventoId = "pitirrin_1771068449500_mgmmoohmt";
+
+    // Adapter and Lists
     private InvitadosAdapter adapter;
     private List<Invitado> listaInvitados = new ArrayList<>();
     private List<Invitado> listaInvitadosFiltrados = new ArrayList<>();
 
-    // Firebase
-    private FirebaseFirestore db;
-
-    // IDs FIJOS de tu Firebase
-    private String organizadorUid = "aOgugK6oqAYzLTF8vMb9qng2g9I2";
-    private String eventoId = "pitirrin_1771068449500_mgmmoohmt";
-
-    // Contadores para aforo
+    // Counters
     private int totalPersonas = 0;
     private int personasEscaneadas = 0;
 
@@ -77,113 +65,32 @@ public class Eventos extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_eventos);
 
-        tvEventName = findViewById(R.id.tvEventName);
-        tvEventTime = findViewById(R.id.tvEventTime);
-        cvEventCard = findViewById(R.id.cvEventCard);
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
 
-        loadEventData();
-
-        cvEventCard.setOnClickListener(v -> {
-            String eventId = (String) cvEventCard.getTag();
-            if (eventId != null) {
-                Intent intent = new Intent(Eventos.this, DetalleEvento.class);
-                intent.putExtra("EVENT_NAME", tvEventName.getText().toString());
-                intent.putExtra("EVENT_ID", eventId);
-                startActivity(intent);
-            }
-        });
-
-        ImageView ivSettings = findViewById(R.id.ivSettings);
-        ivSettings.setOnClickListener(v -> showThemeDialog());
-    }
-
-    private void loadEventData() {
-        FirebaseUser user = mAuth.getCurrentUser();
-        if (user == null || user.getEmail() == null) {
-            tvEventName.setText("Usuario no identificado");
-            return;
-        }
-
-        String email = user.getEmail();
-
-        // Path: usuarios/{email}/eventos
-        db.collection("usuarios")
-                .document(email)
-                .collection("eventos")
-                .limit(1)
-                .get()
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful() && task.getResult() != null && !task.getResult().isEmpty()) {
-                        for (QueryDocumentSnapshot document : task.getResult()) {
-                            String name = document.getString("nombreEvento");
-                            String time = document.getString("hora");
-                            String date = document.getString("fecha");
-                            
-                            tvEventName.setText(name != null ? name : "Sin nombre");
-                            tvEventTime.setText((date != null ? date : "--") + " | " + (time != null ? time : "--"));
-                            cvEventCard.setTag(document.getId());
-                        }
-                    } else {
-                        tvEventName.setText("No hay eventos disponibles");
-                        Log.d("Firebase", "No events found for user: " + email);
-                        if (task.getException() != null) {
-                            Log.e("Firebase", "Error getting events", task.getException());
-                        }
-                    }
-                });
-    }
-
-    private void showThemeDialog() {
-        String[] themes = {"Tema Claro", "Tema Oscuro"};
-        int checkedItem = ThemeHelper.getSelectedTheme(this) == ThemeHelper.THEME_LIGHT ? 0 : 1;
-
-        new AlertDialog.Builder(this)
-                .setTitle("Seleccionar Tema")
-                .setSingleChoiceItems(themes, checkedItem, (dialog, which) -> {
-                    if (which == 0) {
-                        ThemeHelper.setTheme(this, ThemeHelper.THEME_LIGHT);
-                    } else {
-                        ThemeHelper.setTheme(this, ThemeHelper.THEME_DARK);
-                    }
-                    dialog.dismiss();
-                    recreate();
-                })
-                .show();
-        // Inicializar Firebase
-        db = FirebaseFirestore.getInstance();
-
-        // Inicializar vistas
         initViews();
-
-        Log.d("Eventos", "Cargando datos para UID: " + organizadorUid);
-        Log.d("Eventos", "Evento ID: " + eventoId);
-
-        // Configurar RecyclerView
         setupRecyclerView();
+        setupSearch();
 
-        // Configurar evento del botón QR
+        cargarTodosLosInvitados();
+
+        ivSettings.setOnClickListener(v -> showThemeDialog());
+
         botonQR.setOnClickListener(view -> {
             Intent intent = new Intent(Eventos.this, QrScannerActivity.class);
             startActivityForResult(intent, QR_REQUEST_CODE);
         });
-
-        // Configurar búsqueda
-        setupSearch();
-
-        // Cargar todos los invitados
-        cargarTodosLosInvitados();
     }
 
     private void initViews() {
-        botonQR = findViewById(R.id.btnQR);
         tvTitle = findViewById(R.id.tvTitle);
         tvAforo = findViewById(R.id.tvAforo);
         etSearch = findViewById(R.id.etSearch);
         rvInvitados = findViewById(R.id.rvInvitados);
         layoutEstadoVacio = findViewById(R.id.layoutEstadoVacio);
         tvEmptyMessage = findViewById(R.id.tvEmptyMessage);
+        botonQR = findViewById(R.id.btnQR);
+        ivSettings = findViewById(R.id.ivSettings);
     }
 
     private void setupRecyclerView() {
@@ -193,19 +100,22 @@ public class Eventos extends AppCompatActivity {
     }
 
     private void setupSearch() {
-        etSearch.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+        if (etSearch != null) {
+            etSearch.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                filtrarInvitados(s.toString());
-            }
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    filtrarInvitados(s.toString());
+                }
 
-            @Override
-            public void afterTextChanged(Editable s) {}
-        });
+                @Override
+                public void afterTextChanged(Editable s) {}
+            });
+        }
     }
+
 
     private void cargarTodosLosInvitados() {
         db.collection("usuarios")
@@ -215,8 +125,6 @@ public class Eventos extends AppCompatActivity {
                 .collection("invitados")
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
-                    Log.d("Eventos", "Documentos encontrados: " + queryDocumentSnapshots.size());
-
                     if (queryDocumentSnapshots.isEmpty()) {
                         tvEmptyMessage.setText("No hay invitados para este evento");
                         layoutEstadoVacio.setVisibility(View.VISIBLE);
@@ -237,7 +145,6 @@ public class Eventos extends AppCompatActivity {
                         Long numInvitados = document.getLong("numInvitados");
                         invitado.setNumInvitados(numInvitados != null ? numInvitados.intValue() : 1);
 
-                        // Obtener el array de personas
                         List<Map<String, Object>> personasMap = (List<Map<String, Object>>) document.get("personas");
                         List<Persona> personas = new ArrayList<>();
 
@@ -252,27 +159,21 @@ public class Eventos extends AppCompatActivity {
                                 Boolean escaneado = (Boolean) personaMap.get("escaneado");
                                 persona.setEscaneado(escaneado != null ? escaneado : false);
 
-                                // Contar personas escaneadas
                                 if (persona.isEscaneado()) {
                                     personasEscaneadas++;
                                 }
-
                                 personas.add(persona);
                             }
                         }
 
                         invitado.setPersonas(personas);
                         listaInvitados.add(invitado);
-
-                        // Calcular total de personas
                         totalPersonas += personas.size();
                     }
 
                     listaInvitadosFiltrados.clear();
                     listaInvitadosFiltrados.addAll(listaInvitados);
                     adapter.notifyDataSetChanged();
-
-                    // Actualizar UI
                     actualizarUI();
                 })
                 .addOnFailureListener(e -> {
@@ -280,25 +181,20 @@ public class Eventos extends AppCompatActivity {
                     tvEmptyMessage.setText("Error: " + e.getMessage());
                     layoutEstadoVacio.setVisibility(View.VISIBLE);
                     rvInvitados.setVisibility(View.GONE);
-                    Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
     }
 
     private void filtrarInvitados(String query) {
         listaInvitadosFiltrados.clear();
-
         if (query.isEmpty()) {
             listaInvitadosFiltrados.addAll(listaInvitados);
         } else {
             String queryLower = query.toLowerCase();
             for (Invitado invitado : listaInvitados) {
-                // Buscar en nombre del invitado principal
                 if (invitado.getNombre().toLowerCase().contains(queryLower)) {
                     listaInvitadosFiltrados.add(invitado);
                     continue;
                 }
-
-                // Buscar en nombres de las personas asociadas
                 for (Persona persona : invitado.getPersonas()) {
                     if (persona.getNombre().toLowerCase().contains(queryLower)) {
                         listaInvitadosFiltrados.add(invitado);
@@ -308,7 +204,6 @@ public class Eventos extends AppCompatActivity {
             }
         }
 
-        // Mostrar u ocultar vista vacía
         if (listaInvitadosFiltrados.isEmpty() && !query.isEmpty()) {
             tvEmptyMessage.setText("No se encontraron resultados para \"" + query + "\"");
             layoutEstadoVacio.setVisibility(View.VISIBLE);
@@ -320,13 +215,12 @@ public class Eventos extends AppCompatActivity {
             layoutEstadoVacio.setVisibility(View.GONE);
             rvInvitados.setVisibility(View.VISIBLE);
         }
-
         adapter.notifyDataSetChanged();
     }
 
     private void actualizarUI() {
-        tvAforo.setText("Aforo: " + personasEscaneadas + "/" + totalPersonas);
-        tvTitle.setText("pitirrin");
+        if (tvAforo != null) tvAforo.setText("Aforo: " + personasEscaneadas + "/" + totalPersonas);
+        if (tvTitle != null) tvTitle.setText("pitirrin");
 
         if (listaInvitados.isEmpty()) {
             layoutEstadoVacio.setVisibility(View.VISIBLE);
@@ -337,7 +231,25 @@ public class Eventos extends AppCompatActivity {
         }
     }
 
-    // Clases modelo
+    private void showThemeDialog() {
+        String[] themes = {"Tema Claro", "Tema Oscuro"};
+        int checkedItem = ThemeHelper.getSelectedTheme(this) == ThemeHelper.THEME_LIGHT ? 0 : 1;
+
+        new AlertDialog.Builder(this)
+                .setTitle("Seleccionar Tema")
+                .setSingleChoiceItems(themes, checkedItem, (dialog, which) -> {
+                    if (which == 0) {
+                        ThemeHelper.setTheme(this, ThemeHelper.THEME_LIGHT);
+                    } else {
+                        ThemeHelper.setTheme(this, ThemeHelper.THEME_DARK);
+                    }
+                    dialog.dismiss();
+                    recreate();
+                })
+                .show();
+    }
+
+    // Model Classes
     public static class Invitado {
         private String id;
         private String nombre;
@@ -376,36 +288,27 @@ public class Eventos extends AppCompatActivity {
         public void setEscaneado(boolean escaneado) { this.escaneado = escaneado; }
     }
 
-    // Adaptador
+    // Adapter
     private class InvitadosAdapter extends RecyclerView.Adapter<InvitadosAdapter.InvitadoViewHolder> {
-
         private List<Invitado> invitados;
-
-        public InvitadosAdapter(List<Invitado> invitados) {
-            this.invitados = invitados;
-        }
+        public InvitadosAdapter(List<Invitado> invitados) { this.invitados = invitados; }
 
         @NonNull
         @Override
         public InvitadoViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            View view = LayoutInflater.from(parent.getContext())
-                    .inflate(R.layout.item_alumno, parent, false);
+            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_alumno, parent, false);
             return new InvitadoViewHolder(view);
         }
 
         @Override
         public void onBindViewHolder(@NonNull InvitadoViewHolder holder, int position) {
-            Invitado invitado = invitados.get(position);
-            holder.bind(invitado);
+            holder.bind(invitados.get(position));
         }
 
         @Override
-        public int getItemCount() {
-            return invitados.size();
-        }
+        public int getItemCount() { return invitados.size(); }
 
         class InvitadoViewHolder extends RecyclerView.ViewHolder {
-
             TextView tvMainName, tvSubName1, tvSubName, tvTime, tvTime2;
             CheckBox cb1, cb;
             View ivArrow1, ivArrow;
@@ -421,18 +324,23 @@ public class Eventos extends AppCompatActivity {
                 cb = itemView.findViewById(R.id.cb);
                 ivArrow1 = itemView.findViewById(R.id.ivArrow1);
                 ivArrow = itemView.findViewById(R.id.ivArrow);
+
+                itemView.setOnClickListener(v -> {
+                    Intent intent = new Intent(Eventos.this, DetalleEvento.class);
+                    // Usando los mismos valores hardcodeados que ya tiene la clase para consistencia
+                    intent.putExtra("EVENT_ID", "pitirrin_organizador_aOgugK6oqAYzLTF8vMb9qng2g9I2");
+                    intent.putExtra("EVENT_NAME", "pitirrin");
+                    startActivity(intent);
+                });
             }
 
             void bind(Invitado invitado) {
                 tvMainName.setText(invitado.getNombre());
-
                 List<Persona> personas = invitado.getPersonas();
-
                 if (personas.size() >= 1) {
-                    Persona persona1 = personas.get(0);
-                    tvSubName1.setText(persona1.getNombre());
-                    cb1.setChecked(persona1.isEscaneado());
-
+                    Persona p = personas.get(0);
+                    tvSubName1.setText(p.getNombre());
+                    cb1.setChecked(p.isEscaneado());
                     tvSubName1.setVisibility(View.VISIBLE);
                     tvTime.setVisibility(View.VISIBLE);
                     cb1.setVisibility(View.VISIBLE);
@@ -445,10 +353,9 @@ public class Eventos extends AppCompatActivity {
                 }
 
                 if (personas.size() >= 2) {
-                    Persona persona2 = personas.get(1);
-                    tvSubName.setText(persona2.getNombre());
-                    cb.setChecked(persona2.isEscaneado());
-
+                    Persona p = personas.get(1);
+                    tvSubName.setText(p.getNombre());
+                    cb.setChecked(p.isEscaneado());
                     tvSubName.setVisibility(View.VISIBLE);
                     tvTime2.setVisibility(View.VISIBLE);
                     cb.setVisibility(View.VISIBLE);
@@ -463,3 +370,4 @@ public class Eventos extends AppCompatActivity {
         }
     }
 }
+

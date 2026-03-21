@@ -92,8 +92,8 @@ public class Login extends AppCompatActivity {
                                 "Inicio de sesión exitoso",
                                 Toast.LENGTH_SHORT).show();
 
-                        // abrir otra Activity
-                        startActivity(new Intent(Login.this, Eventos.class));
+                        // abrir Home primero
+                        startActivity(new Intent(Login.this, Home.class));
                         finish();
 
                     } else {

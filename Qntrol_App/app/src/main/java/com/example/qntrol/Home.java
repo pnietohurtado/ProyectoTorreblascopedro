@@ -2,7 +2,9 @@ package com.example.qntrol;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.ImageView;
 import androidx.appcompat.app.AlertDialog;
 
@@ -18,6 +20,12 @@ public class Home extends AppCompatActivity {
 
         ImageView ivSettings = findViewById(R.id.ivSettings);
         ivSettings.setOnClickListener(v -> showThemeDialog());
+
+        View cvEventCard = findViewById(R.id.cvEventCard);
+        cvEventCard.setOnClickListener(v -> {
+            Intent intent = new Intent(Home.this, Eventos.class);
+            startActivity(intent);
+        });
     }
 
     private void showThemeDialog() {
