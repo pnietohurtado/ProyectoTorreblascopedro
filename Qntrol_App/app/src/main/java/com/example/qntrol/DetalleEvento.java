@@ -96,6 +96,11 @@ public class DetalleEvento extends AppCompatActivity {
         setupSearch();
 
         botonQR.setOnClickListener(view -> {
+            Log.d("DetalleEvento", "QR Button clicked, eventId: " + eventId);
+            if (eventId == null) {
+                Toast.makeText(this, "Error: ID de evento no encontrado", Toast.LENGTH_SHORT).show();
+                return;
+            }
             Intent intent = new Intent(DetalleEvento.this, QrScannerActivity.class);
             intent.putExtra("EVENT_ID", eventId);
             startActivityForResult(intent, QR_REQUEST_CODE);

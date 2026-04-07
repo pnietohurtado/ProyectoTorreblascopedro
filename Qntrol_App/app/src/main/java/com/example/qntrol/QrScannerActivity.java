@@ -23,8 +23,10 @@ import android.os.Looper;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.view.View;
+import android.widget.Button;
 import android.widget.RelativeLayout;
 import android.widget.LinearLayout;
+import com.google.android.material.button.MaterialButton;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 
@@ -55,7 +57,8 @@ public class QrScannerActivity extends AppCompatActivity {
     private RelativeLayout overlayFeedback;
     private LinearLayout cardFeedback;
     private ImageView ivFeedbackIcon, ivBack;
-    private TextView tvFeedbackMessage;
+    private TextView tvFeedbackMessage, tvFeedbackSeatInfo;
+    private MaterialButton btnCerrarFeedback;
     
     private boolean isProcessing = false;
     private FirebaseFirestore db;
@@ -85,7 +88,14 @@ public class QrScannerActivity extends AppCompatActivity {
         cardFeedback = findViewById(R.id.cardFeedback);
         ivFeedbackIcon = findViewById(R.id.ivFeedbackIcon);
         tvFeedbackMessage = findViewById(R.id.tvFeedbackMessage);
+        tvFeedbackSeatInfo = findViewById(R.id.tvFeedbackSeatInfo);
+        btnCerrarFeedback = findViewById(R.id.btnCerrarFeedback);
         ivBack = findViewById(R.id.ivBackScanner);
+
+        btnCerrarFeedback.setOnClickListener(v -> {
+            overlayFeedback.setVisibility(View.GONE);
+            isProcessing = false;
+        });
         
         ivBack.setOnClickListener(v -> finish());
         
@@ -103,10 +113,17 @@ public class QrScannerActivity extends AppCompatActivity {
         }
     }
 
-    private void showFeedback(boolean isSuccess, String message) {
+    private void showFeedback(boolean isSuccess, String message, String seatInfo) {
         runOnUiThread(() -> {
             overlayFeedback.setVisibility(View.VISIBLE);
             tvFeedbackMessage.setText(message);
+            
+            if (seatInfo != null && !seatInfo.isEmpty()) {
+                tvFeedbackSeatInfo.setText(seatInfo);
+                tvFeedbackSeatInfo.setVisibility(View.VISIBLE);
+            } else {
+                tvFeedbackSeatInfo.setVisibility(View.GONE);
+            }
             
             if (isSuccess) {
                 // Soft elegant green
@@ -117,12 +134,14 @@ public class QrScannerActivity extends AppCompatActivity {
                 cardFeedback.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#E57373")));
                 ivFeedbackIcon.setImageResource(android.R.drawable.ic_delete);
             }
-
-            new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                overlayFeedback.setVisibility(View.GONE);
-                isProcessing = false;
-            }, SCAN_DELAY_MS);
+            
+            // Auto-hide removed as per request. Card stays until "Cerrar" is clicked.
         });
+    }
+
+    // Overload for backward compatibility if needed, though we updated all calls
+    private void showFeedback(boolean isSuccess, String message) {
+        showFeedback(isSuccess, message, null);
     }
 
     private void startCamera() {
@@ -220,10 +239,22 @@ public class QrScannerActivity extends AppCompatActivity {
         Map<String, Object> persona = personas.get(index);
         Boolean yaEscaneado = (Boolean) persona.get("escaneado");
         String titularName = doc.getString("nombre");
-        String guestDisplay = "Invitado " + (index + 1) + " de " + (titularName != null ? titularName : "Desconocido");
+        final String guestDisplay = "Invitado " + (index + 1) + " de " + (titularName != null ? titularName : "Desconocido");
+
+        // Retrieve seat info checking both lower and uppercase for flexibility
+        Object filaObj = persona.containsKey("fila") ? persona.get("fila") : persona.get("Fila");
+        Object colObj = persona.containsKey("columna") ? persona.get("columna") : persona.get("Columna");
+        
+        final String seatInfo;
+        if (filaObj != null && colObj != null) {
+            seatInfo = "Asiento: F-" + filaObj + " C-" + colObj;
+        } else {
+            // Si por algún motivo no estuvieran, mostramos que no hay asiento asignado
+            seatInfo = "Asiento: No asignado";
+        }
 
         if (yaEscaneado != null && yaEscaneado) {
-            showFeedback(false, "YA INGRESADO\n" + guestDisplay);
+            showFeedback(false, "YA INGRESADO\n" + guestDisplay, seatInfo);
             return;
         }
 
@@ -234,10 +265,9 @@ public class QrScannerActivity extends AppCompatActivity {
         // Update in Firestore
         doc.getReference().update("personas", personas)
                 .addOnSuccessListener(aVoid -> {
-                    showFeedback(true, "ACCESO PERMITIDO\n" + guestDisplay);
+                    showFeedback(true, "ACCESO PERMITIDO\n" + guestDisplay, seatInfo);
                     updateCapacity();
                     
-                    // Trigger haptic feedback or sound if needed? For now just UI
                     Intent resultIntent = new Intent();
                     resultIntent.putExtra("QR_VALUE", guestDisplay);
                     setResult(RESULT_OK, resultIntent);
