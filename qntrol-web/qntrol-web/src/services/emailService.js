@@ -30,9 +30,24 @@ const getQRBase64 = async (qrText) => {
 };
 
 /**
+ * Sustituye variables en un texto (ej: {{nombre_alumno}}) por valores reales.
+ */
+const replaceVariables = (text, eventData, guestData) => {
+  if (!text) return '';
+  
+  return text
+    .replace(/{{nombre_alumno}}/g, guestData.nombre || '')
+    .replace(/{{nombre_evento}}/g, eventData.nombreEvento || eventData.title || '')
+    .replace(/{{fecha_evento}}/g, eventData.fecha || eventData.date || '')
+    .replace(/{{hora_evento}}/g, eventData.hora || '')
+    .replace(/{{nombre_salon}}/g, eventData.direccion || eventData.address || '') // Usando dirección como nombre de salón si no hay
+    .replace(/{{asiento_asignado}}/g, guestData.asiento || 'Por asignar');
+};
+
+/**
  * Envía un correo de invitación con QR a un invitado.
  */
-export const sendEventInvitation = async (eventData, guestData) => {
+export const sendEventInvitation = async (eventData, guestData, customSubject = null, customBody = null) => {
   if (!guestData.email) {
     console.warn(`Sin email para: ${guestData.nombre}`);
     return;
@@ -40,6 +55,15 @@ export const sendEventInvitation = async (eventData, guestData) => {
 
   const qrCode = guestData.qrCode || guestData.personas?.[0]?.qrCode || null;
   const qrBase64 = qrCode ? await getQRBase64(qrCode) : '';
+
+  // Variables personalizadas procesadas
+  const finalSubject = customSubject 
+    ? replaceVariables(customSubject, eventData, guestData) 
+    : `Invitación a ${eventData.nombreEvento || eventData.title || 'Evento'}`;
+    
+  const finalMessage = customBody 
+    ? replaceVariables(customBody, eventData, guestData) 
+    : '';
 
   // Variables que el template de EmailJS puede usar
   const templateParams = {
@@ -49,14 +73,14 @@ export const sendEventInvitation = async (eventData, guestData) => {
     event_date: eventData.fecha || eventData.date || '',
     event_time: eventData.hora || '',
     event_address: eventData.direccion || eventData.address || '',
-    // Código QR en base64 → úsala en tu template como:
-    // <img src="{{qr_image_url}}" width="250" height="250" />
     qr_image_url: qrBase64,
     qr_code_text: qrCode || '',
+    // Nuevos campos para personalización
+    custom_subject: finalSubject,
+    custom_message: finalMessage,
   };
 
-  console.log(`📧 Enviando a ${guestData.email}`);
-  console.log(`🔗 QR Base64 generado`);
+  console.log(`📧 Enviando a ${guestData.email} - Asunto: ${finalSubject}`);
 
   try {
     const response = await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
@@ -71,7 +95,7 @@ export const sendEventInvitation = async (eventData, guestData) => {
 /**
  * Envía correos a todos los invitados — un email por persona con su QR propio
  */
-export const sendInvitationsToAll = async (eventData, guestList) => {
+export const sendInvitationsToAll = async (eventData, guestList, customSubject = null, customBody = null) => {
   const result = { success: 0, failed: 0, errors: [] };
 
   for (const guest of guestList) {
@@ -86,7 +110,8 @@ export const sendInvitationsToAll = async (eventData, guestList) => {
             nombre: persona.nombre,
             email: persona.email,
             qrCode: persona.qrCode,
-          });
+            asiento: persona.asiento || guest.asiento,
+          }, customSubject, customBody);
           result.success++;
         } catch (err) {
           result.failed++;
@@ -101,7 +126,8 @@ export const sendInvitationsToAll = async (eventData, guestList) => {
           nombre: guest.nombre,
           email: guest.email,
           qrCode: personas[0]?.qrCode || guest.qrCode,
-        });
+          asiento: guest.asiento,
+        }, customSubject, customBody);
         result.success++;
       } catch (err) {
         result.failed++;

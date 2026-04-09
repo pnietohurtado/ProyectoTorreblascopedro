@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import Button from './Button';
 import excelIcon from '../assets/excel-icon.png';
-import { crearEvento, cargarInvitadosCSV } from "../firebase/firebase";
+import { crearEvento, cargarInvitadosCSV, getInvitadosByEvento } from "../firebase/firebase";
+import { sendInvitationsToAll } from "../services/emailService";
 
 const EventForm = ({ onSave, onCancel }) => {
   // --- LÓGICA ORIGINAL INTACTA ---
@@ -25,6 +26,7 @@ const EventForm = ({ onSave, onCancel }) => {
   // --- NUEVOS ESTADOS PARA EL MENSAJE ---
   const [mensajeAsunto, setMensajeAsunto] = useState('');
   const [mensajeCuerpo, setMensajeCuerpo] = useState('Hola {{nombre_alumno}},\n\n');
+  const [enviarAlCrear, setEnviarAlCrear] = useState(false);
   const textareaRef = useRef(null);
 
   const variablesDisponibles = [
@@ -198,6 +200,27 @@ const EventForm = ({ onSave, onCancel }) => {
       };
 
       onSave(newEvent);
+
+      // 3. (OPCIONAL) Enviar correos si el usuario lo marcó
+      if (enviarAlCrear && guestList.length > 0) {
+        try {
+          const invitadosRecienCargados = await getInvitadosByEvento(eventoCreado.eventoId);
+          if (invitadosRecienCargados && invitadosRecienCargados.length > 0) {
+            await sendInvitationsToAll(
+              { ...eventoCreado, title, fecha: date, hora: time, direccion: address }, 
+              invitadosRecienCargados, 
+              mensajeAsunto, 
+              mensajeCuerpo
+            );
+            alert('Evento creado e invitaciones enviadas con éxito.');
+          }
+        } catch (mailError) {
+          console.error("Error al enviar correos tras la creación:", mailError);
+          alert("El evento se creó, pero hubo un error enviando los correos: " + mailError.message);
+        }
+      } else {
+        alert('Evento creado correctamente.');
+      }
 
     } catch (error) {
       console.error('Error al crear evento:', error);
@@ -479,28 +502,49 @@ const EventForm = ({ onSave, onCancel }) => {
                         className="bg-[#1e1b2e] border border-transparent p-4 rounded-xl focus:border-[#7738B0] focus:ring-1 focus:ring-[#7738B0] outline-none transition-all placeholder:text-gray-600 text-white resize-none min-h-[250px] flex-1"
                         placeholder="Escribe el mensaje personalizado..."
                       />
-                    </div>
+                      </div>
                   </div>
 
-                  {/* Panel de variables (Derecha) */}
-                  <div className="w-full md:w-64 bg-[#1e1b2e] rounded-xl p-5 border border-white/5 flex flex-col gap-3">
-                    <h3 className="text-white font-medium mb-2 border-b border-white/10 pb-2 text-sm">
-                      Variables Disponibles
-                    </h3>
-                    <p className="text-xs text-gray-400 mb-2">Arrastra los bloques al cuerpo del mensaje.</p>
-                    
-                    <div className="flex flex-col gap-2">
-                      {variablesDisponibles.map((variable) => (
-                        <div
-                          key={variable}
-                          draggable
-                          onDragStart={(e) => handleDragStartVariable(e, variable)}
-                          className="bg-[#0D0E22] border border-[#7738B0]/40 text-[#b57ced] text-xs py-2 px-3 rounded-lg cursor-grab active:cursor-grabbing hover:bg-[#7738B0]/20 transition-colors flex items-center justify-between group"
-                        >
-                          <span className="font-mono">{variable}</span>
-                          <span className="text-gray-500 opacity-0 group-hover:opacity-100 text-[10px]">≡</span>
+                  {/* Panel de variables y opciones (Derecha) */}
+                  <div className="w-full md:w-64 flex flex-col gap-6">
+                    <div className="bg-[#1e1b2e] rounded-xl p-5 border border-white/5 flex flex-col gap-3">
+                      <h3 className="text-white font-medium mb-2 border-b border-white/10 pb-2 text-sm">
+                        Variables Disponibles
+                      </h3>
+                      <p className="text-xs text-gray-400 mb-2">Arrastra los bloques al cuerpo del mensaje.</p>
+                      
+                      <div className="flex flex-col gap-2">
+                        {variablesDisponibles.map((variable) => (
+                          <div
+                            key={variable}
+                            draggable
+                            onDragStart={(e) => handleDragStartVariable(e, variable)}
+                            className="bg-[#0D0E22] border border-[#7738B0]/40 text-[#b57ced] text-xs py-2 px-3 rounded-lg cursor-grab active:cursor-grabbing hover:bg-[#7738B0]/20 transition-colors flex items-center justify-between group"
+                          >
+                            <span className="font-mono">{variable}</span>
+                            <span className="text-gray-500 opacity-0 group-hover:opacity-100 text-[10px]">≡</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* OPCIÓN DE ENVÍO AUTOMÁTICO */}
+                    <div className="bg-[#7738B0]/10 rounded-xl p-5 border border-[#7738B0]/30 flex flex-col gap-3">
+                      <h3 className="text-white font-medium text-sm">Opciones de envio</h3>
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <div className="relative">
+                          <input 
+                            type="checkbox" 
+                            className="sr-only" 
+                            checked={enviarAlCrear}
+                            onChange={(e) => setEnviarAlCrear(e.target.checked)}
+                          />
+                          <div className={`w-10 h-5 rounded-full transition-colors ${enviarAlCrear ? 'bg-[#7738B0]' : 'bg-gray-600'}`}></div>
+                          <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${enviarAlCrear ? 'translate-x-5' : ''}`}></div>
                         </div>
-                      ))}
+                        <span className="text-xs text-gray-300 group-hover:text-white transition-colors">Enviar automáticamente</span>
+                      </label>
+                      <p className="text-[10px] text-gray-500 italic">Si se marca, se enviarán los correos justo después de crear el evento.</p>
                     </div>
                   </div>
                 </div>
