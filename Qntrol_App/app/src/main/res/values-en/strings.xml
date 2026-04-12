@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">Qntrol</string>
+    <string name="title_settings">Settings</string>
+    <string name="setting_theme">Dark Mode</string>
+    <string name="setting_language">Language</string>
+    <string name="setting_logout">Logout</string>
+    <string name="setting_privacy">Privacy Policy</string>
+    <string name="lang_spanish">Spanish</string>
+    <string name="lang_english">English</string>
+    <string name="privacy_policy_title">Privacy Policy</string>
+    <string name="privacy_policy_content">This is an access control application. Your data is safe and processed following Google Firebase standards.</string>
+    <string name="btn_close">Close</string>
+    <string name="logout_confirm_title">Logout</string>
+    <string name="logout_confirm_msg">Are you sure you want to log out of the current session?</string>
+    <string name="btn_logout_confirm">Logout</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="reset_pass_title">Recover Password</string>
+    <string name="reset_pass_msg">We will send a link to your email to reset your password.</string>
+    <string name="btn_send">Send</string>
+    <string name="reset_pass_success">Link sent to </string>
+    <string name="reset_pass_error">Error sending link</string>
+</resources>

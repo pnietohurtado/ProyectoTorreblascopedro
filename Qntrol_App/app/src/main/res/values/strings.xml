@@ -1,3 +1,22 @@
 <resources>
     <string name="app_name">Qntrol</string>
+    <string name="title_settings">Ajustes</string>
+    <string name="setting_theme">Modo Oscuro</string>
+    <string name="setting_language">Idioma</string>
+    <string name="setting_logout">Cerrar Sesión</string>
+    <string name="setting_privacy">Política de Privacidad</string>
+    <string name="lang_spanish">Español</string>
+    <string name="lang_english">Inglés</string>
+    <string name="privacy_policy_title">Política de Privacidad</string>
+    <string name="privacy_policy_content">Esta es una aplicación de control de acceso. Tus datos están seguros y se procesan siguiendo los estándares de Google Firebase.</string>
+    <string name="btn_close">Cerrar</string>
+    <string name="logout_confirm_title">Cerrar sesión</string>
+    <string name="logout_confirm_msg">¿Estás seguro de que quieres cerrar la sesión actual?</string>
+    <string name="btn_logout_confirm">Cerrar sesión</string>
+    <string name="btn_cancel">Cancelar</string>
+    <string name="reset_pass_title">Recuperar contraseña</string>
+    <string name="reset_pass_msg">Enviaremos un enlace a tu correo para restablecer tu contraseña.</string>
+    <string name="btn_send">Enviar</string>
+    <string name="reset_pass_success">Enlace enviado a </string>
+    <string name="reset_pass_error">Error al enviar el enlace</string>
 </resources>

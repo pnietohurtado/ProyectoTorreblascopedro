@@ -6,6 +6,7 @@
         <item name="android:windowBackground">@color/surface_color</item>
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="colorError">@color/error_red_dark</item>
     </style>
 
     <style name="Theme.Qntrol" parent="Base.Theme.Qntrol" />

@@ -10,8 +10,13 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.LinearLayout;
+import android.view.LayoutInflater;
 import android.widget.Toast;
 
+import android.view.MotionEvent;
+import android.view.inputmethod.InputMethodManager;
+import android.content.Context;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -33,12 +38,11 @@ import java.util.Map;
 public class DetalleEvento extends AppCompatActivity {
 
     private MaterialButton botonQR;
-    private TextView tvTitle, tvAforo, tvMainName, tvSubName1, tvSubName2, tvTime1, tvTime2;
+    private TextView tvTitle, tvAforo, tvMainName;
     private EditText etSearch;
-    private CheckBox cb1, cb2;
     private View layoutEstadoAlumno, layoutEstadoVacio;
     private ImageView ivBack;
-    private View ivArrow2; 
+    private LinearLayout layoutGuestsContainer;
     
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
@@ -53,6 +57,7 @@ public class DetalleEvento extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         ThemeHelper.applyTheme(this);
+        LanguageHelper.applyLanguage(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_detalle_evento);
 
@@ -73,16 +78,8 @@ public class DetalleEvento extends AppCompatActivity {
         
         layoutEstadoAlumno = findViewById(R.id.layoutEstadoAlumno);
         layoutEstadoVacio = findViewById(R.id.layoutEstadoVacio);
-        
         tvMainName = findViewById(R.id.tvMainName);
-        tvSubName1 = findViewById(R.id.tvSubName1);
-        tvSubName2 = findViewById(R.id.tvSubName); 
-        tvTime1 = findViewById(R.id.tvTime);
-        tvTime2 = findViewById(R.id.tvTime2);
-        ivArrow2 = findViewById(R.id.ivArrow);
-        
-        cb1 = findViewById(R.id.cb1);
-        cb2 = findViewById(R.id.cb); 
+        layoutGuestsContainer = findViewById(R.id.layoutGuestsContainer);
 
         // Intent data
         eventName = getIntent().getStringExtra("EVENT_NAME");
@@ -107,7 +104,7 @@ public class DetalleEvento extends AppCompatActivity {
         });
 
         ImageView ivSettings = findViewById(R.id.ivSettings);
-        ivSettings.setOnClickListener(v -> showThemeDialog());
+        ivSettings.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
     }
 
     private void startRealtimeSync() {
@@ -185,53 +182,45 @@ public class DetalleEvento extends AppCompatActivity {
         layoutEstadoVacio.setVisibility(View.GONE);
 
         String nombreTitular = doc.getString("nombre");
+        if (nombreTitular == null) nombreTitular = "Alumno";
         tvMainName.setText(nombreTitular);
 
         List<Map<String, Object>> personas = (List<Map<String, Object>>) doc.get("personas");
         
-        // Reset listeners
-        cb1.setOnCheckedChangeListener(null);
-        cb2.setOnCheckedChangeListener(null);
+        // Clear previous guests
+        layoutGuestsContainer.removeAllViews();
 
-        if (personas != null && !personas.isEmpty()) {
-            // Invitado 1
-            Map<String, Object> p1 = personas.get(0);
-            String name1 = (String) p1.get("nombre");
-            Boolean esc1 = (Boolean) p1.get("escaneado");
-            Timestamp time1 = (Timestamp) p1.get("fechaEscaneo");
-
-            tvSubName1.setText(name1 != null ? name1 : "Invitado 1");
-            cb1.setChecked(esc1 != null && esc1);
-            tvTime1.setText(time1 != null ? dateFormat.format(time1.toDate()) : "No registrado");
-
-            // Invitado 2
-            if (personas.size() >= 2) {
-                Map<String, Object> p2 = personas.get(1);
-                String name2 = (String) p2.get("nombre");
-                Boolean esc2 = (Boolean) p2.get("escaneado");
-                Timestamp time2 = (Timestamp) p2.get("fechaEscaneo");
-
-                tvSubName2.setText(name2 != null ? name2 : "Invitado 2");
-                cb2.setChecked(esc2 != null && esc2);
-                tvTime2.setText(time2 != null ? dateFormat.format(time2.toDate()) : "No registrado");
-                
-                toggleGuest2Visibility(true);
-            } else {
-                toggleGuest2Visibility(false);
+        if (personas != null) {
+            // Find companions (exclude the titular student)
+            for (int i = 0; i < personas.size(); i++) {
+                Map<String, Object> p = personas.get(i);
+                String pName = (String) p.get("nombre");
+                if (pName != null && !pName.equalsIgnoreCase(nombreTitular)) {
+                    // It's a companion, inflate and add view
+                    inflarInvitado(p, i, doc.getId());
+                }
             }
         }
-
-        // Set listeners for manual update
-        cb1.setOnCheckedChangeListener((buttonView, isChecked) -> updateAsistenciaManual(doc.getId(), 0, isChecked));
-        cb2.setOnCheckedChangeListener((buttonView, isChecked) -> updateAsistenciaManual(doc.getId(), 1, isChecked));
     }
 
-    private void toggleGuest2Visibility(boolean visible) {
-        int visibility = visible ? View.VISIBLE : View.GONE;
-        tvSubName2.setVisibility(visibility);
-        tvTime2.setVisibility(visibility);
-        cb2.setVisibility(visibility);
-        ivArrow2.setVisibility(visibility);
+    private void inflarInvitado(Map<String, Object> p, int originalIndex, String docId) {
+        View guestView = LayoutInflater.from(this).inflate(R.layout.item_guest, layoutGuestsContainer, false);
+        
+        TextView tvName = guestView.findViewById(R.id.tvGuestName);
+        TextView tvTime = guestView.findViewById(R.id.tvGuestTime);
+        CheckBox cb = guestView.findViewById(R.id.cbGuest);
+
+        String name = (String) p.get("nombre");
+        Boolean esc = (Boolean) p.get("escaneado");
+        Timestamp time = (Timestamp) p.get("fechaEscaneo");
+
+        tvName.setText(name != null ? name : "Invitado");
+        cb.setChecked(esc != null && esc);
+        tvTime.setText(time != null ? dateFormat.format(time.toDate()) : "No registrado");
+
+        cb.setOnCheckedChangeListener((buttonView, isChecked) -> updateAsistenciaManual(docId, originalIndex, isChecked));
+        
+        layoutGuestsContainer.addView(guestView);
     }
 
     @SuppressWarnings("unchecked")
@@ -276,21 +265,6 @@ public class DetalleEvento extends AppCompatActivity {
         tvAforo.setText("Aforo: " + presentes + "/" + total);
     }
 
-    private void showThemeDialog() {
-        String[] themes = {"Tema Claro", "Tema Oscuro"};
-        int checkedItem = ThemeHelper.getSelectedTheme(this) == ThemeHelper.THEME_LIGHT ? 0 : 1;
-
-        new AlertDialog.Builder(this)
-                .setTitle("Seleccionar Tema")
-                .setSingleChoiceItems(themes, checkedItem, (dialog, which) -> {
-                    if (which == 0) ThemeHelper.setTheme(this, ThemeHelper.THEME_LIGHT);
-                    else ThemeHelper.setTheme(this, ThemeHelper.THEME_DARK);
-                    dialog.dismiss();
-                    recreate();
-                })
-                .show();
-    }
-
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -303,5 +277,23 @@ public class DetalleEvento extends AppCompatActivity {
         if (guestsListener != null) {
             guestsListener.remove();
         }
+    }
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            View v = getCurrentFocus();
+            if (v instanceof EditText) {
+                int[] outLocation = new int[2];
+                v.getLocationOnScreen(outLocation);
+                float x = event.getRawX() + v.getLeft() - outLocation[0];
+                float y = event.getRawY() + v.getTop() - outLocation[1];
+                if (x < v.getLeft() || x > v.getRight() || y < v.getTop() || y > v.getBottom()) {
+                    v.clearFocus();
+                    InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                    imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
+                }
+            }
+        }
+        return super.dispatchTouchEvent(event);
     }
 }

@@ -39,6 +39,7 @@ dependencies {
 
     // ML Kit Barcode Scanning (Bundled version, does not require Google Play Services)
     implementation ("com.google.mlkit:barcode-scanning:17.3.0")
+    implementation ("com.google.android.gms:play-services-auth:21.0.0")
 
     // Autenticacion
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
@@ -48,6 +49,7 @@ dependencies {
     implementation ("com.google.firebase:firebase-firestore:24.10.0")
 
     implementation("androidx.appcompat:appcompat:1.7.1")
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("com.google.android.material:material:1.13.0")
     implementation("androidx.constraintlayout:constraintlayout:2.2.1")
     testImplementation("junit:junit:4.13.2")

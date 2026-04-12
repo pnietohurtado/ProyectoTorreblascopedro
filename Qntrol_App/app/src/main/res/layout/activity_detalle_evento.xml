@@ -140,97 +140,13 @@
             android:background="?android:attr/textColorPrimary"
             app:layout_constraintTop_toBottomOf="@+id/ivUserIcon" />
 
-        <!-- Guest 1 -->
-        <ImageView
-            android:id="@+id/ivArrow1"
-            android:layout_width="16dp"
-            android:layout_height="16dp"
-            android:layout_marginTop="16dp"
-            android:contentDescription="Flecha"
-            android:src="@drawable/ic_arrow_right"
-            app:tint="?android:attr/textColorSecondary"
-            app:layout_constraintStart_toStartOf="parent"
+        <!-- Dynamic Guest List Container -->
+        <LinearLayout
+            android:id="@+id/layoutGuestsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
             app:layout_constraintTop_toBottomOf="@+id/separator" />
-
-        <TextView
-            android:id="@+id/tvSubName1"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:fontFamily="@font/inter"
-            android:text="Invitado 1"
-            android:textColor="?android:attr/textColorPrimary"
-            app:layout_constraintEnd_toStartOf="@+id/cb1"
-            app:layout_constraintStart_toEndOf="@+id/ivArrow1"
-            app:layout_constraintTop_toTopOf="@+id/ivArrow1" />
-
-        <TextView
-            android:id="@+id/tvTime"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:fontFamily="@font/inter"
-            android:text="No registrado"
-            android:textColor="?android:attr/textColorSecondary"
-            android:textSize="11sp"
-            app:layout_constraintStart_toStartOf="@+id/tvSubName1"
-            app:layout_constraintTop_toBottomOf="@+id/tvSubName1" />
-
-        <CheckBox
-            android:id="@+id/cb1"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:background="@drawable/custom_checkbox"
-            android:button="@null"
-            app:layout_constraintBottom_toBottomOf="@+id/tvTime"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@+id/tvSubName1" />
-
-        <!-- Guest 2 -->
-        <ImageView
-            android:id="@+id/ivArrow"
-            android:layout_width="16dp"
-            android:layout_height="16dp"
-            android:layout_marginTop="24dp"
-            android:contentDescription="Flecha"
-            android:src="@drawable/ic_arrow_right"
-            app:tint="?android:attr/textColorSecondary"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/tvTime" />
-
-        <TextView
-            android:id="@+id/tvSubName"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:fontFamily="@font/inter"
-            android:text="Invitado 2"
-            android:textColor="?android:attr/textColorPrimary"
-            app:layout_constraintEnd_toStartOf="@+id/cb"
-            app:layout_constraintStart_toEndOf="@+id/ivArrow"
-            app:layout_constraintTop_toTopOf="@+id/ivArrow" />
-
-        <TextView
-            android:id="@+id/tvTime2"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:fontFamily="@font/inter"
-            android:text="No registrado"
-            android:textColor="?android:attr/textColorSecondary"
-            android:textSize="11sp"
-            app:layout_constraintStart_toStartOf="@+id/tvSubName"
-            app:layout_constraintTop_toBottomOf="@+id/tvSubName" />
-
-        <CheckBox
-            android:id="@+id/cb"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:background="@drawable/custom_checkbox"
-            android:button="@null"
-            app:layout_constraintBottom_toBottomOf="@+id/tvTime2"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@+id/tvSubName" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
