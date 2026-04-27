@@ -1,574 +1,264 @@
 import React, { useState, useRef } from 'react';
 import Button from './Button';
 import excelIcon from '../assets/excel-icon.png';
-import { crearEvento, cargarInvitadosCSV, getInvitadosByEvento } from "../firebase/firebase";
-import { sendInvitationsToAll } from "../services/emailService";
+import { crearEvento, cargarInvitadosCSV } from "../firebase/firebase";
 
 const EventForm = ({ onSave, onCancel }) => {
-  // --- LÓGICA ORIGINAL INTACTA ---
+  // --- ESTADOS GENERALES ---
+  const [activeTab, setActiveTab] = useState('general');
   const [title, setTitle] = useState('');
   const [address, setAddress] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
-  const [dragActive, setDragActive] = useState(false);
-  const [fileName, setFileName] = useState('');
-  const [guestList, setGuestList] = useState([]);
-  const [showUploadArea, setShowUploadArea] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // --- LÓGICA DE ARCHIVOS (CSV) ---
+  const [guestList, setGuestList] = useState([]);
+  const [fileName, setFileName] = useState('');
+  const [dragActive, setDragActive] = useState(false);
+  const [showUploadArea, setShowUploadArea] = useState(false);
   const fileInputRef = useRef(null);
 
-  // --- NUEVOS ESTADOS PARA PESTAÑAS Y SALÓN ---
-  const [activeTab, setActiveTab] = useState('general');
-  const [totalSeats, setTotalSeats] = useState('');
-  const [rows, setRows] = useState('');
-  const [columns, setColumns] = useState('');
+  // --- CONFIGURACIÓN DE SALÓN (MAPA VISUAL) ---
+  const [seatRows, setSeatRows] = useState(10);
+  const [seatCols, setSeatCols] = useState(10);
+  const [selectedSeats, setSelectedSeats] = useState({});
+  const [hiddenSeats, setHiddenSeats] = useState({});
+  const [seatEditMode, setSeatEditMode] = useState('select'); // 'select' o 'delete'
 
-  // --- NUEVOS ESTADOS PARA EL MENSAJE ---
+  // --- CONFIGURACIÓN DEL MENSAJE ---
   const [mensajeAsunto, setMensajeAsunto] = useState('');
-  const [mensajeCuerpo, setMensajeCuerpo] = useState('Hola {{nombre_alumno}},\n\n');
-  const [enviarAlCrear, setEnviarAlCrear] = useState(false);
+  const [mensajeCuerpo, setMensajeCuerpo] = useState('Hola {{nombre_alumno}},\n\nTu invitación para {{nombre_evento}} está lista.');
   const textareaRef = useRef(null);
 
   const variablesDisponibles = [
-    '{{nombre_alumno}}',
-    '{{nombre_evento}}',
-    '{{fecha_evento}}',
-    '{{hora_evento}}',
-    '{{nombre_salon}}',
-    '{{asiento_asignado}}'
+    '{{nombre_alumno}}', '{{nombre_evento}}', '{{fecha_evento}}',
+    '{{hora_evento}}', '{{nombre_salon}}', '{{asiento_asignado}}'
   ];
 
-  // --- FUNCIONES ORIGINALES ---
-  const handleDrag = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
+  // --- FUNCIONES DE ASISTENCIA ---
+  const getRowLabel = (index) => {
+    let label = '';
+    let temp = index;
+    while (temp >= 0) {
+      label = String.fromCharCode(65 + (temp % 26)) + label;
+      temp = Math.floor(temp / 26) - 1;
+    }
+    return label;
+  };
+
+  const handleSeatClick = (rowLabel, colIndex) => {
+    const seatId = `${rowLabel}-${colIndex}`;
+    if (seatEditMode === 'delete') {
+      setHiddenSeats(prev => {
+        const next = { ...prev };
+        next[seatId] ? delete next[seatId] : next[seatId] = true;
+        return next;
+      });
+    } else {
+      if (hiddenSeats[seatId]) return;
+      setSelectedSeats(prev => {
+        const next = { ...prev };
+        next[seatId] ? delete next[seatId] : next[seatId] = true;
+        return next;
+      });
     }
   };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      processFile(file);
-    }
-  };
-
-  const handleExcelClick = () => {
-    setShowUploadArea(true);
-    setTimeout(() => {
-      if (fileInputRef.current) {
-        fileInputRef.current.click();
-      }
-    }, 100);
-  };
-
+  // --- LÓGICA DE CSV ---
   const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      processFile(file);
-    }
+    if (e.target.files && e.target.files[0]) processFile(e.target.files[0]);
   };
 
   const processFile = (file) => {
-    const fileExtension = file.name.split('.').pop().toLowerCase();
-    if (!['csv', 'xlsx', 'xls'].includes(fileExtension)) {
-      alert('Por favor sube un archivo CSV o Excel (.csv, .xlsx, .xls)');
-      return;
-    }
-
-    setFileName(file.name);
-    setShowUploadArea(false);
-
     const reader = new FileReader();
-    
-    reader.onload = async (e) => {
-      try {
-        const text = e.target.result;
-        const data = parseCSV(text);
-        
-        if (data.length > 0 && !data[0].Nombre && !data[0].nombre) {
-          alert('El archivo CSV necesita al menos una columna "Nombre" o "nombre"');
-          return;
-        }
-        
-        setGuestList(data);
-        
-      } catch (error) {
-        console.error('Error al procesar el archivo:', error);
-        alert('Error al leer el archivo. Verifica el formato.');
-      }
-    };
-    
-    reader.onerror = () => {
-      alert('Error al leer el archivo');
-    };
-    
-    if (fileExtension === 'csv') {
-      reader.readAsText(file, 'UTF-8');
-    } 
-  };
-
-  const parseCSV = (text) => {
-    const lines = text.split(/\r\n|\n|\r/);
-    const result = [];
-    
-    if (lines.length === 0) return result;
-    
-    const firstLine = lines[0];
-    const delimiter = firstLine.includes(';') ? ';' : ',';
-    
-    const headers = firstLine.split(delimiter).map(h => h.trim());
-    
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-      
-      const values = line.split(delimiter);
-      const obj = {};
-      
-      headers.forEach((header, index) => {
-        obj[header] = values[index] ? values[index].trim() : '';
+    reader.onload = (e) => {
+      const text = e.target.result;
+      const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim());
+      const headers = lines[0].split(lines[0].includes(';') ? ';' : ',').map(h => h.trim());
+      const data = lines.slice(1).map(line => {
+        const values = line.split(lines[0].includes(';') ? ';' : ',');
+        const obj = {};
+        headers.forEach((h, i) => obj[h] = values[i]?.trim() || '');
+        return obj;
       });
-      
-      if (Object.values(obj).some(value => value !== '')) {
-        result.push(obj);
-      }
-    }
-    
-    return result;
+      setGuestList(data);
+      setFileName(file.name);
+    };
+    reader.readAsText(file, 'UTF-8');
   };
 
-  const handleRemoveFile = () => {
-    setFileName('');
-    setGuestList([]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+  // --- LÓGICA DE DRAG VARIABLES ---
+  const handleDropVariable = (e) => {
+    e.preventDefault();
+    const variable = e.dataTransfer.getData('text/plain');
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      setMensajeCuerpo(mensajeCuerpo.substring(0, start) + variable + mensajeCuerpo.substring(end));
     }
   };
 
+  // --- SUBMIT FINAL ---
   const handleSubmit = async () => {
-    if (!title || !date) {
-      alert('Por favor rellena al menos el título y la fecha.');
-      return;
-    }
-
+    if (!title || !date) return alert('Por favor rellena el título y la fecha.');
     setLoading(true);
-
     try {
-      const eventoCreado = await crearEvento({
+      const result = await crearEvento({
         nombreEvento: title,
-        direccion: address || "",
+        direccion: address,
         fecha: date,
-        hora: time || "18:00",
-        descripcion: "Evento creado desde formulario",
-        capacidadMaxima: totalSeats ? parseInt(totalSeats) : (guestList.length > 0 ? (guestList.length * 3) : 100),
-        configuracionSalon: {
-          filas: rows ? parseInt(rows) : null,
-          columnas: columns ? parseInt(columns) : null
-        }
+        hora: time,
+        seatRows,
+        seatCols,
+        selectedSeats,
+        hiddenSeats,
+        mensajeAsunto,
+        mensajeCuerpo
       });
 
-      console.log('✅ Evento creado:', eventoCreado.eventoId);
-
-      let resultadosCarga = { exitosos: 0, fallidos: 0 };
-      
       if (guestList.length > 0) {
-        resultadosCarga = await cargarInvitadosCSV(eventoCreado.eventoId, guestList);
+        await cargarInvitadosCSV(result.eventoId, guestList);
       }
-
-      const dateObj = new Date(date + 'T' + (time || '00:00'));
-      const formattedDate = dateObj.toLocaleDateString('es-ES') + ' - ' + (time ? time + 'h' : '');
-
-      const newEvent = {
-        title,
-        address,
-        date: formattedDate,
-        eventId: eventoCreado.eventoId,
-        guestList: guestList.length > 0 ? guestList : [],
-        estadisticas: {
-          totalInvitados: guestList.length,
-          exitosos: resultadosCarga.exitosos,
-          fallidos: resultadosCarga.fallidos
-        }
-      };
-
-      onSave(newEvent);
-
-      // 3. (OPCIONAL) Enviar correos si el usuario lo marcó
-      if (enviarAlCrear && guestList.length > 0) {
-        try {
-          const invitadosRecienCargados = await getInvitadosByEvento(eventoCreado.eventoId);
-          if (invitadosRecienCargados && invitadosRecienCargados.length > 0) {
-            await sendInvitationsToAll(
-              { ...eventoCreado, title, fecha: date, hora: time, direccion: address }, 
-              invitadosRecienCargados, 
-              mensajeAsunto, 
-              mensajeCuerpo
-            );
-            alert('Evento creado e invitaciones enviadas con éxito.');
-          }
-        } catch (mailError) {
-          console.error("Error al enviar correos tras la creación:", mailError);
-          alert("El evento se creó, pero hubo un error enviando los correos: " + mailError.message);
-        }
-      } else {
-        alert('Evento creado correctamente.');
-      }
-
+      onSave(result);
     } catch (error) {
-      console.error('Error al crear evento:', error);
-      alert(`Error al crear evento: ${error.message}`);
+      alert("Error al crear evento: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // --- FUNCIONES NUEVAS PARA EL DRAG & DROP DEL MENSAJE ---
-  const handleDragStartVariable = (e, variable) => {
-    e.dataTransfer.setData('text/plain', variable);
-  };
-
-  const handleDropTextarea = (e) => {
-    e.preventDefault();
-    const variableText = e.dataTransfer.getData('text/plain');
-    if (!variableText) return;
-
-    const textarea = textareaRef.current;
-    if (textarea) {
-      const startPos = textarea.selectionStart;
-      const endPos = textarea.selectionEnd;
-      const textBefore = mensajeCuerpo.substring(0, startPos);
-      const textAfter = mensajeCuerpo.substring(endPos, mensajeCuerpo.length);
-
-      setMensajeCuerpo(textBefore + variableText + textAfter);
-
-      // Devolver el foco al textarea justo después de soltar la variable
-      setTimeout(() => {
-        textarea.selectionStart = textarea.selectionEnd = startPos + variableText.length;
-        textarea.focus();
-      }, 0);
-    }
-  };
-
-  const handleDragOverTextarea = (e) => {
-    e.preventDefault(); // Necesario para permitir el "drop"
-  };
-
   return (
-    <div className="flex-1 p-6 md:p-10 flex flex-col h-full overflow-hidden text-left">
-      <div className="bg-[#0f0f1b] rounded-3xl max-w-5xl w-full mx-auto shadow-2xl flex flex-col overflow-hidden max-h-full border border-white/5">
-
-        {/* Header con Pestañas (Diseño Mejorado) */}
-        <div className="bg-gradient-to-r from-[#7738B0] to-[#592a85] pt-6 px-6 flex flex-col gap-4">
-          <h2 className="text-2xl font-bold text-white ml-2">Crear Evento</h2>
-          <div className="flex gap-6 overflow-x-auto custom-scrollbar">
-            <button 
-              onClick={() => setActiveTab('general')}
-              className={`pb-3 px-2 text-sm font-semibold tracking-wide border-b-2 transition-all duration-300 whitespace-nowrap ${activeTab === 'general' ? 'border-white text-white' : 'border-transparent text-white/50 hover:text-white/80'}`}
-            >
-              Información General
-            </button>
-            <button 
-              onClick={() => setActiveTab('salon')}
-              className={`pb-3 px-2 text-sm font-semibold tracking-wide border-b-2 transition-all duration-300 whitespace-nowrap ${activeTab === 'salon' ? 'border-white text-white' : 'border-transparent text-white/50 hover:text-white/80'}`}
-            >
-              Configuración de Salón
-            </button>
-            {/* NUEVA PESTAÑA */}
-            <button 
-              onClick={() => setActiveTab('mensaje')}
-              className={`pb-3 px-2 text-sm font-semibold tracking-wide border-b-2 transition-all duration-300 whitespace-nowrap ${activeTab === 'mensaje' ? 'border-white text-white' : 'border-transparent text-white/50 hover:text-white/80'}`}
-            >
-              Configuración del Mensaje
-            </button>
+    <div className="flex-1 p-6 md:p-10 flex flex-col h-full bg-[#0D0E22]">
+      <div className="bg-[#0f0f1b] rounded-3xl max-w-6xl w-full mx-auto shadow-2xl flex flex-col overflow-hidden border border-white/5 h-full">
+        
+        {/* HEADER CON PESTAÑAS */}
+        <div className="bg-gradient-to-r from-[#7738B0] to-[#592a85] pt-6 px-8 shrink-0">
+          <h2 className="text-2xl font-black text-white mb-6 uppercase tracking-tight">Nuevo Evento</h2>
+          <div className="flex gap-8">
+            {['general', 'salon', 'mensaje'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`pb-4 text-xs font-black uppercase tracking-widest border-b-4 transition-all ${
+                  activeTab === tab ? 'border-white text-white' : 'border-transparent text-white/30 hover:text-white/60'
+                }`}
+              >
+                {tab === 'general' ? 'Información' : tab === 'salon' ? 'Salón' : 'Invitación'}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="p-8 overflow-y-auto custom-scrollbar bg-[#0D0E22] flex-1">
-          <div className="flex flex-col md:flex-row gap-10">
-
-            {/* Ocultamos la foto solo si estamos en la pestaña de mensaje para dar más espacio al editor, si lo prefieres visible, quita la condición */}
-            {activeTab !== 'mensaje' && (
-              <div className="flex flex-col gap-3">
-                <label className="text-gray-300 text-sm font-medium ml-1">Foto del evento</label>
-                <div className="w-40 h-40 border-2 border-dashed border-gray-600 rounded-2xl flex items-center justify-center cursor-pointer hover:border-[#7738B0] hover:bg-[#7738B0]/5 transition-all group bg-[#13111c]">
-                  <span className="text-5xl text-gray-500 group-hover:text-[#7738B0] transition-colors font-light relative top-[-2px]">+</span>
-                </div>
+        {/* CONTENIDO SCROLLABLE */}
+        <div className="p-8 overflow-y-auto flex-1 custom-scrollbar bg-[#0D0E22]">
+          
+          {/* PESTAÑA 1: GENERAL */}
+          {activeTab === 'general' && (
+            <div className="grid grid-cols-2 gap-8 animate-fadeIn">
+              <div className="col-span-2 flex flex-col gap-2">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Título</label>
+                <input value={title} onChange={e => setTitle(e.target.value)} placeholder="EJ. GALA DE GRADUACIÓN" className="bg-[#1e1b2e] p-5 rounded-2xl text-white outline-none border border-transparent focus:border-[#7738B0] transition-all" />
               </div>
-            )}
-
-            <div className="flex-1 w-full">
-              {/* PESTAÑA: INFORMACIÓN GENERAL */}
-              {activeTab === 'general' && (
-                 <div className="grid grid-cols-2 gap-6 animate-fadeIn">
-                 <div className="col-span-2 flex flex-col gap-2">
-                   <label className="text-gray-300 text-sm font-medium ml-1">Nombre</label>
-                   <input
-                     type="text"
-                     value={title}
-                     onChange={(e) => setTitle(e.target.value)}
-                     className="bg-[#1e1b2e] border border-transparent p-4 rounded-xl focus:border-[#7738B0] focus:ring-1 focus:ring-[#7738B0] outline-none transition-all placeholder:text-gray-600 text-white"
-                     placeholder="Ej: Graduación..."
-                   />
-                 </div>
-
-                 <div className="col-span-2 flex flex-col gap-2">
-                   <label className="text-gray-300 text-sm font-medium ml-1">Dirección</label>
-                   <input
-                     type="text"
-                     value={address}
-                     onChange={(e) => setAddress(e.target.value)}
-                     className="bg-[#1e1b2e] border border-transparent p-4 rounded-xl focus:border-[#7738B0] focus:ring-1 focus:ring-[#7738B0] outline-none transition-all placeholder:text-gray-600 text-white"
-                     placeholder="Ej: Calle Principal 123"
-                   />
-                 </div>
-
-                 <div className="flex flex-col gap-2">
-                   <label className="text-gray-300 text-sm font-medium ml-1">Fecha</label>
-                   <input
-                     type="date"
-                     value={date}
-                     onChange={(e) => setDate(e.target.value)}
-                     className="bg-[#1e1b2e] border border-transparent p-4 rounded-xl text-gray-300 focus:border-[#7738B0] focus:ring-1 focus:ring-[#7738B0] outline-none transition-all"
-                   />
-                 </div>
-
-                 <div className="flex flex-col gap-2">
-                   <label className="text-gray-300 text-sm font-medium ml-1">Hora</label>
-                   <input
-                     type="time"
-                     value={time}
-                     onChange={(e) => setTime(e.target.value)}
-                     className="bg-[#1e1b2e] border border-transparent p-4 rounded-xl text-gray-300 focus:border-[#7738B0] focus:ring-1 focus:ring-[#7738B0] outline-none transition-all"
-                   />
-                 </div>
-
-                 {/* Área de carga de invitados */}
-                 <div className="col-span-2 mt-2">
-                   {/* ... (Todo el código del drag and drop de Excel se mantiene intacto aquí) ... */}
-                   <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileChange}
-                      accept=".csv,.xlsx,.xls"
-                      className="hidden"
-                    />
-                    
-                    {showUploadArea ? (
-                      <div
-                        className={`bg-[#1e1c30] p-6 rounded-xl border-2 border-dashed transition-all cursor-pointer ${
-                          dragActive 
-                            ? 'border-[#7738B0] bg-[#7738B0]/10' 
-                            : 'border-gray-600 hover:border-[#7738B0]/50'
-                        }`}
-                        onDragEnter={handleDrag}
-                        onDragLeave={handleDrag}
-                        onDragOver={handleDrag}
-                        onDrop={handleDrop}
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <div className="flex flex-col items-center justify-center gap-3">
-                          <div className="w-12 h-12">
-                            <img src={excelIcon} alt="Excel" className="w-full h-full object-contain opacity-80" />
-                          </div>
-                          <div className="text-center">
-                            <p className="text-sm font-medium text-gray-300">
-                              {dragActive ? 'Suelta el archivo aquí' : 'Arrastra tu archivo CSV/Excel aquí'}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">o haz clic para seleccionar</p>
-                            <p className="text-[10px] text-gray-600 mt-2">Formatos aceptados: .csv, .xlsx, .xls</p>
-                          </div>
-                        </div>
-                      </div>
-                    ) : fileName ? (
-                      <div className="bg-[#1e1c30] p-4 rounded-xl border border-[#7738B0]/50 shadow-lg shadow-purple-900/10">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10">
-                              <img src={excelIcon} alt="Excel" className="w-full h-full object-contain" />
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-sm font-semibold text-gray-300">{fileName}</span>
-                              <span className="text-xs text-[#7738B0] font-medium">
-                                {guestList.length} invitados cargados
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <button onClick={() => setShowUploadArea(true)} className="text-xs text-white/60 hover:text-white px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors">
-                              Cambiar
-                            </button>
-                            <button onClick={handleRemoveFile} className="text-xs text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors">
-                              Quitar
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div 
-                        className="bg-[#1e1b2e] p-4 rounded-xl flex items-center justify-between border border-transparent hover:border-[#7738B0]/50 transition-all cursor-pointer group pr-6"
-                        onClick={handleExcelClick}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 flex-shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
-                            <img src={excelIcon} alt="Excel" className="w-full h-full object-contain" />
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-semibold text-gray-300 group-hover:text-white transition-colors">Lista de invitados</span>
-                            <span className="text-xs text-gray-500">Sube un archivo .xlsx o .csv</span>
-                          </div>
-                        </div>
-                        <span className="text-[#7738B0] group-hover:text-purple-400 text-sm font-medium transition-colors">Cargar archivo</span>
-                      </div>
-                    )}
-                 </div>
-               </div>
-              )}
-
-              {/* PESTAÑA: CONFIGURACIÓN DE SALÓN */}
-              {activeTab === 'salon' && (
-                <div className="grid grid-cols-2 gap-6 animate-fadeIn">
-                  <div className="col-span-2 bg-[#1e1b2e] p-5 rounded-xl border border-purple-500/20 mb-2">
-                    <p className="text-sm text-purple-200">Configura la capacidad y distribución de los asientos para generar correctamente el mapa de este evento.</p>
-                  </div>
-
-                  <div className="col-span-2 flex flex-col gap-2">
-                    <label className="text-gray-300 text-sm font-medium ml-1">Total de Butacas / Capacidad</label>
-                    <input
-                      type="number"
-                      value={totalSeats}
-                      onChange={(e) => setTotalSeats(e.target.value)}
-                      className="bg-[#1e1b2e] border border-transparent p-4 rounded-xl focus:border-[#7738B0] focus:ring-1 focus:ring-[#7738B0] outline-none transition-all placeholder:text-gray-600 text-white"
-                      placeholder="Ej: 150"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <label className="text-gray-300 text-sm font-medium ml-1">Número de Filas</label>
-                    <input
-                      type="number"
-                      value={rows}
-                      onChange={(e) => setRows(e.target.value)}
-                      className="bg-[#1e1b2e] border border-transparent p-4 rounded-xl text-gray-300 focus:border-[#7738B0] focus:ring-1 focus:ring-[#7738B0] outline-none transition-all"
-                      placeholder="Ej: 10"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <label className="text-gray-300 text-sm font-medium ml-1">Número de Columnas</label>
-                    <input
-                      type="number"
-                      value={columns}
-                      onChange={(e) => setColumns(e.target.value)}
-                      className="bg-[#1e1b2e] border border-transparent p-4 rounded-xl text-gray-300 focus:border-[#7738B0] focus:ring-1 focus:ring-[#7738B0] outline-none transition-all"
-                      placeholder="Ej: 15"
-                    />
-                  </div>
+              <div className="col-span-2 flex flex-col gap-2">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Ubicación</label>
+                <input value={address} onChange={e => setAddress(e.target.value)} placeholder="DIRECCIÓN DEL EVENTO" className="bg-[#1e1b2e] p-5 rounded-2xl text-white outline-none border border-transparent focus:border-[#7738B0] transition-all" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Fecha</label>
+                <input type="date" value={date} onChange={e => setDate(e.target.value)} className="bg-[#1e1b2e] p-5 rounded-2xl text-white outline-none" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Hora</label>
+                <input type="time" value={time} onChange={e => setTime(e.target.value)} className="bg-[#1e1b2e] p-5 rounded-2xl text-white outline-none" />
+              </div>
+              <div className="col-span-2 mt-4">
+                <div onClick={() => fileInputRef.current.click()} className="border-2 border-dashed border-white/10 p-10 rounded-[2rem] flex flex-col items-center gap-4 cursor-pointer hover:bg-white/[0.02] transition-all group">
+                   <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept=".csv" />
+                   <img src={excelIcon} className="w-12 h-12 opacity-20 group-hover:opacity-100 transition-opacity" alt="csv" />
+                   <p className="text-gray-500 font-bold text-sm">{fileName || "CARGAR LISTA DE INVITADOS (.CSV)"}</p>
+                   {guestList.length > 0 && <span className="text-[#7738B0] font-black">{guestList.length} DETECTADOS</span>}
                 </div>
-              )}
-
-              {/* PESTAÑA: CONFIGURACIÓN DEL MENSAJE */}
-              {activeTab === 'mensaje' && (
-                <div className="flex flex-col md:flex-row gap-6 animate-fadeIn h-full">
-                  
-                  {/* Editor del mensaje (Izquierda) */}
-                  <div className="flex-1 flex flex-col gap-4">
-                    <div className="flex flex-col gap-2">
-                      <label className="text-gray-300 text-sm font-medium ml-1">Asunto del Correo</label>
-                      <input
-                        type="text"
-                        value={mensajeAsunto}
-                        onChange={(e) => setMensajeAsunto(e.target.value)}
-                        className="bg-[#1e1b2e] border border-transparent p-4 rounded-xl focus:border-[#7738B0] focus:ring-1 focus:ring-[#7738B0] outline-none transition-all placeholder:text-gray-600 text-white"
-                        placeholder="Ej: Tu entrada para {{nombre_evento}}"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-2 flex-1">
-                      <label className="text-gray-300 text-sm font-medium ml-1">Cuerpo del Mensaje (Arrastra variables aquí)</label>
-                      <textarea
-                        ref={textareaRef}
-                        value={mensajeCuerpo}
-                        onChange={(e) => setMensajeCuerpo(e.target.value)}
-                        onDrop={handleDropTextarea}
-                        onDragOver={handleDragOverTextarea}
-                        className="bg-[#1e1b2e] border border-transparent p-4 rounded-xl focus:border-[#7738B0] focus:ring-1 focus:ring-[#7738B0] outline-none transition-all placeholder:text-gray-600 text-white resize-none min-h-[250px] flex-1"
-                        placeholder="Escribe el mensaje personalizado..."
-                      />
-                      </div>
-                  </div>
-
-                  {/* Panel de variables y opciones (Derecha) */}
-                  <div className="w-full md:w-64 flex flex-col gap-6">
-                    <div className="bg-[#1e1b2e] rounded-xl p-5 border border-white/5 flex flex-col gap-3">
-                      <h3 className="text-white font-medium mb-2 border-b border-white/10 pb-2 text-sm">
-                        Variables Disponibles
-                      </h3>
-                      <p className="text-xs text-gray-400 mb-2">Arrastra los bloques al cuerpo del mensaje.</p>
-                      
-                      <div className="flex flex-col gap-2">
-                        {variablesDisponibles.map((variable) => (
-                          <div
-                            key={variable}
-                            draggable
-                            onDragStart={(e) => handleDragStartVariable(e, variable)}
-                            className="bg-[#0D0E22] border border-[#7738B0]/40 text-[#b57ced] text-xs py-2 px-3 rounded-lg cursor-grab active:cursor-grabbing hover:bg-[#7738B0]/20 transition-colors flex items-center justify-between group"
-                          >
-                            <span className="font-mono">{variable}</span>
-                            <span className="text-gray-500 opacity-0 group-hover:opacity-100 text-[10px]">≡</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* OPCIÓN DE ENVÍO AUTOMÁTICO */}
-                    <div className="bg-[#7738B0]/10 rounded-xl p-5 border border-[#7738B0]/30 flex flex-col gap-3">
-                      <h3 className="text-white font-medium text-sm">Opciones de envio</h3>
-                      <label className="flex items-center gap-3 cursor-pointer group">
-                        <div className="relative">
-                          <input 
-                            type="checkbox" 
-                            className="sr-only" 
-                            checked={enviarAlCrear}
-                            onChange={(e) => setEnviarAlCrear(e.target.checked)}
-                          />
-                          <div className={`w-10 h-5 rounded-full transition-colors ${enviarAlCrear ? 'bg-[#7738B0]' : 'bg-gray-600'}`}></div>
-                          <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${enviarAlCrear ? 'translate-x-5' : ''}`}></div>
-                        </div>
-                        <span className="text-xs text-gray-300 group-hover:text-white transition-colors">Enviar automáticamente</span>
-                      </label>
-                      <p className="text-[10px] text-gray-500 italic">Si se marca, se enviarán los correos justo después de crear el evento.</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Botones Fijos abajo */}
-              <div className="mt-10 flex flex-col gap-3">
-                <Button 
-                  onClick={handleSubmit} 
-                  className={`w-full py-4 text-lg font-bold tracking-wide transition-all ${
-                    guestList.length > 0 
-                      ? 'shadow-lg shadow-purple-900/40 bg-gradient-to-r from-[#7738B0] to-[#9a4ad4] hover:scale-[1.01]' 
-                      : 'bg-[#7738B0] hover:bg-[#602c8c]'
-                  }`}
-                >
-                  {loading ? 'Procesando...' : (guestList.length > 0 ? `Crear evento con ${guestList.length} invitados` : 'Crear evento')}
-                </Button>
-                <button onClick={onCancel} className="w-full py-3 text-gray-500 hover:text-white transition-colors text-sm font-medium hover:bg-white/5 rounded-xl">
-                  Cancelar
-                </button>
               </div>
             </div>
+          )}
 
-          </div>
+          {/* PESTAÑA 2: SALÓN (MAPA) */}
+          {activeTab === 'salon' && (
+            <div className="flex flex-col gap-8 animate-fadeIn">
+              <div className="flex flex-wrap gap-4 bg-black/20 p-6 rounded-3xl border border-white/5 items-end">
+                <div className="flex-1 min-w-[120px]">
+                  <label className="text-[10px] text-gray-500 font-black uppercase mb-2 block">Filas</label>
+                  <input type="number" value={seatRows} onChange={e => setSeatRows(parseInt(e.target.value) || 1)} className="w-full bg-[#1e1b2e] p-4 rounded-xl text-white outline-none" />
+                </div>
+                <div className="flex-1 min-w-[120px]">
+                  <label className="text-[10px] text-gray-500 font-black uppercase mb-2 block">Columnas</label>
+                  <input type="number" value={seatCols} onChange={e => setSeatCols(parseInt(e.target.value) || 1)} className="w-full bg-[#1e1b2e] p-4 rounded-xl text-white outline-none" />
+                </div>
+                <button onClick={() => setSeatEditMode(m => m === 'select' ? 'delete' : 'select')} className={`px-6 py-4 rounded-xl font-black text-[10px] tracking-widest uppercase transition-all ${seatEditMode === 'delete' ? 'bg-red-500 text-white' : 'bg-purple-600 text-white'}`}>
+                  {seatEditMode === 'delete' ? 'Modo: Borrar Pasillos' : 'Modo: Activar Butacas'}
+                </button>
+              </div>
+
+              <div className="bg-[#13111C] p-10 rounded-[3rem] border border-white/5 overflow-auto flex flex-col items-center min-h-[450px] relative shadow-inner">
+                <div className="w-3/4 h-2 bg-gradient-to-r from-transparent via-[#7738B0] to-transparent mb-16 rounded-full shadow-[0_0_30px_#7738B0]"></div>
+                <div className="flex flex-col gap-3 min-w-max pb-10">
+                  {Array.from({ length: seatRows }).map((_, r) => (
+                    <div key={r} className="flex gap-3 items-center">
+                      <span className="text-[11px] font-black text-gray-700 w-8 text-center">{getRowLabel(r)}</span>
+                      <div className="flex gap-2">
+                        {Array.from({ length: seatCols }).map((_, c) => {
+                          const id = `${getRowLabel(r)}-${c + 1}`;
+                          const isH = hiddenSeats[id];
+                          const isS = selectedSeats[id];
+                          return (
+                            <button key={c} onClick={() => handleSeatClick(getRowLabel(r), c + 1)} className={`w-10 h-10 rounded-t-xl rounded-b-md text-[9px] font-black transition-all relative border ${isH ? (seatEditMode === 'delete' ? 'bg-red-900/20 border-dashed border-red-500 opacity-40' : 'opacity-0 pointer-events-none') : (isS ? 'bg-green-500 border-green-400 text-white shadow-lg scale-110' : 'bg-gray-800 border-white/5 text-gray-500 hover:scale-110')}`}>
+                              {!isH && id}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* PESTAÑA 3: MENSAJE */}
+          {activeTab === 'mensaje' && (
+            <div className="flex flex-col md:flex-row gap-8 animate-fadeIn h-full">
+              <div className="flex-1 flex flex-col gap-6">
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Asunto del Correo</label>
+                  <input value={mensajeAsunto} onChange={e => setMensajeAsunto(e.target.value)} placeholder="TU INVITACIÓN PARA {{nombre_evento}}" className="bg-[#1e1b2e] p-5 rounded-2xl text-white outline-none border border-transparent focus:border-[#7738B0]" />
+                </div>
+                <div className="flex flex-col gap-2 flex-1">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Cuerpo del Mensaje (Soporta Drag & Drop)</label>
+                  <textarea ref={textareaRef} value={mensajeCuerpo} onChange={e => setMensajeCuerpo(e.target.value)} onDragOver={e => e.preventDefault()} onDrop={handleDropVariable} className="bg-[#1e1b2e] p-6 rounded-[2rem] text-white outline-none border border-transparent focus:border-[#7738B0] flex-1 min-h-[300px] resize-none leading-relaxed" />
+                </div>
+              </div>
+              <div className="w-full md:w-64 bg-black/20 p-6 rounded-[2rem] border border-white/5">
+                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Variables</p>
+                <div className="flex flex-col gap-2">
+                  {variablesDisponibles.map(v => (
+                    <div key={v} draggable onDragStart={e => e.dataTransfer.setData('text/plain', v)} className="bg-gray-800 p-3 rounded-xl text-[10px] font-black text-purple-400 border border-purple-500/20 cursor-grab active:cursor-grabbing hover:bg-gray-700 transition-colors">
+                      {v}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* FOOTER ACCIONES */}
+        <div className="p-8 bg-[#0f0f1b] border-t border-white/5 flex gap-6 shrink-0">
+          <button onClick={onCancel} className="flex-1 p-5 text-gray-500 font-black text-xs tracking-widest uppercase hover:text-white transition-colors">Cancelar</button>
+          <Button onClick={handleSubmit} loading={loading} className="flex-[2] bg-gradient-to-r from-purple-600 to-purple-800 py-5 rounded-[1.5rem] font-black text-xs tracking-[0.2em] uppercase shadow-2xl shadow-purple-900/40 hover:scale-[1.02] active:scale-95 transition-all">
+            Crear Evento
+          </Button>
         </div>
       </div>
     </div>

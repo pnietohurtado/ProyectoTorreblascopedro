@@ -1,16 +1,16 @@
 import React, { useState, useRef } from 'react';
 import Button from './Button';
 import excelIcon from '../assets/excel-icon.png';
-import { getAlumnoData, sendAlumnoData, actualizarEvento, cargarInvitadosCSV, getInvitadosByEvento } from "../firebase/firebase";
+import { actualizarEvento, cargarInvitadosCSV, getInvitadosByEvento, eliminarEvento } from "../firebase/firebase";
 import { sendInvitationsToAll } from "../services/emailService";
 
-const EventList = ({ events, onEditEvent, onCreateClick }) => {
-  // --- LÓGICA ORIGINAL INTACTA ---
+const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
   const displayEvents = events || [];
 
   const [editingEvent, setEditingEvent] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
 
+  // Estados del formulario
   const [title, setTitle] = useState('');
   const [address, setAddress] = useState('');
   const [date, setDate] = useState('');
@@ -21,23 +21,34 @@ const EventList = ({ events, onEditEvent, onCreateClick }) => {
   const [showUploadArea, setShowUploadArea] = useState(false);
   const [isSendingEmails, setIsSendingEmails] = useState(false);
   const fileInputRef = useRef(null);
+  const textareaRef = useRef(null);
 
-  // --- NUEVOS ESTADOS PARA PESTAÑAS Y SALÓN (MODO EDICIÓN) ---
+  // --- CONFIGURACIÓN DEL MENSAJE ---
+  const [mensajeAsunto, setMensajeAsunto] = useState('');
+  const [mensajeCuerpo, setMensajeCuerpo] = useState('Hola {{nombre_alumno}},\n\nTu invitación para {{nombre_evento}} está lista.');
+
+  const variablesDisponibles = [
+    '{{nombre_alumno}}', '{{nombre_evento}}', '{{fecha_evento}}',
+    '{{hora_evento}}', '{{nombre_salon}}', '{{asiento_asignado}}'
+  ];
+
+  // --- LÓGICA DE ASIENTOS RECUPERADA ---
   const [activeTab, setActiveTab] = useState('general');
-  const [totalSeats, setTotalSeats] = useState('');
-  const [rows, setRows] = useState('');
-  const [columns, setColumns] = useState('');
+  const [seatRows, setSeatRows] = useState(10);
+  const [seatCols, setSeatCols] = useState(10);
+  const [selectedSeats, setSelectedSeats] = useState({});
+  const [hiddenSeats, setHiddenSeats] = useState({});
+  const [seatEditMode, setSeatEditMode] = useState('select'); // 'select' o 'delete'
 
   const handleEditClick = (event) => {
     setEditingEvent(event);
     setIsEditing(true);
-    setActiveTab('general'); // Reset tab
+    setActiveTab('general');
 
-    // Cargar los datos del evento en el formulario (Soporte para Firebase y Legacy)
     setTitle(event.title || event.nombreEvento || '');
     setAddress(event.address || event.direccion || '');
 
-    // Parsear la fecha y hora
+    // Parseo de fecha
     if (event.fecha) {
       setDate(event.fecha);
       setTime(event.hora || '');
@@ -45,30 +56,22 @@ const EventList = ({ events, onEditEvent, onCreateClick }) => {
       const dateParts = event.date.split(' - ');
       if (dateParts[0]) {
         const [day, month, year] = dateParts[0].split('/');
-        if (day && month && year) {
-          setDate(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
-        } else {
-          setDate('');
-        }
+        if (day && month && year) setDate(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
       }
-      if (dateParts[1]) {
-        const timePart = dateParts[1].replace('h', '');
-        setTime(timePart);
-      }
-    } else {
-      setDate('');
-      setTime('');
+      if (dateParts[1]) setTime(dateParts[1].replace('h', ''));
     }
 
-    // Cargar datos de salón si existen
-    setTotalSeats(event.capacidadMaxima || event.configuracionSalon?.totalSeats || '');
-    setRows(event.configuracionSalon?.filas || '');
-    setColumns(event.configuracionSalon?.columnas || '');
-
-    // Cargar lista de invitados si existe
-    const currentGuestList = event.guestList || event.invitados || [];
-    setGuestList(currentGuestList);
-    setFileName(currentGuestList.length > 0 ? `Lista cargada (${currentGuestList.length} invitados)` : '');
+    // Carga de configuración de salón
+    setSeatRows(event.seatRows || event.configuracionSalon?.filas || 10);
+    setSeatCols(event.seatCols || event.configuracionSalon?.columnas || 10);
+    setSelectedSeats(event.selectedSeats || {});
+    setHiddenSeats(event.hiddenSeats || {});
+    setGuestList(event.guestList || event.invitados || []);
+    setFileName(event.guestList?.length > 0 ? `Lista cargada (${event.guestList.length} invitados)` : '');
+    
+    // Cargar mensaje
+    setMensajeAsunto(event.mensajeAsunto || '');
+    setMensajeCuerpo(event.mensajeCuerpo || 'Hola {{nombre_alumno}},\n\nTu invitación para {{nombre_evento}} está lista.');
   };
 
   const handleCancelEdit = () => {
@@ -78,619 +81,386 @@ const EventList = ({ events, onEditEvent, onCreateClick }) => {
   };
 
   const resetForm = () => {
-    setTitle('');
-    setAddress('');
-    setDate('');
-    setTime('');
-    setTotalSeats('');
-    setRows('');
-    setColumns('');
-    setFileName('');
-    setGuestList([]);
-    setShowUploadArea(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    setTitle(''); setAddress(''); setDate(''); setTime('');
+    setGuestList([]); setFileName('');
+    setSeatRows(10); setSeatCols(10);
+    setSelectedSeats({}); setHiddenSeats({});
+    setActiveTab('general');
+    setMensajeAsunto('');
+    setMensajeCuerpo('Hola {{nombre_alumno}},\n\nTu invitación para {{nombre_evento}} está lista.');
+  };
+
+  const getRowLabel = (index) => {
+    let label = '';
+    let temp = index;
+    while (temp >= 0) {
+      label = String.fromCharCode(65 + (temp % 26)) + label;
+      temp = Math.floor(temp / 26) - 1;
+    }
+    return label;
+  };
+
+  const handleSeatClick = (rowLabel, colIndex) => {
+    const seatId = `${rowLabel}-${colIndex}`;
+    if (seatEditMode === 'delete') {
+      setHiddenSeats(prev => {
+        const next = { ...prev };
+        next[seatId] ? delete next[seatId] : next[seatId] = true;
+        return next;
+      });
+    } else {
+      if (hiddenSeats[seatId]) return;
+      setSelectedSeats(prev => {
+        const next = { ...prev };
+        next[seatId] ? delete next[seatId] : next[seatId] = true;
+        return next;
+      });
     }
   };
 
-  const handleDrag = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      processFile(file);
-    }
-  };
-
-  const handleExcelClick = () => {
-    setShowUploadArea(true);
-    setTimeout(() => {
-      if (fileInputRef.current) {
-        fileInputRef.current.click();
-      }
-    }, 100);
-  };
-
+  // --- LÓGICA DE ARCHIVOS (CSV) ---
   const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      processFile(file);
-    }
+    if (e.target.files && e.target.files[0]) processFile(e.target.files[0]);
   };
 
   const processFile = (file) => {
-    const fileExtension = file.name.split('.').pop().toLowerCase();
-    if (!['csv', 'xlsx', 'xls'].includes(fileExtension)) {
-      alert('Por favor sube un archivo CSV o Excel (.csv, .xlsx, .xls)');
-      return;
-    }
-
-    setFileName(file.name);
-    setShowUploadArea(false);
-
     const reader = new FileReader();
-
     reader.onload = (e) => {
-      try {
-        const text = e.target.result;
-        const data = parseCSV(text);
-
-        if (data.length > 0) {
-          if (!data[0].Nombre && !data[0].nombre) {
-            alert('El archivo CSV debe tener una columna "Nombre" o "nombre"');
-            setFileName('');
-            return;
-          }
-          setGuestList(data);
-        } else {
-          alert('El archivo parece estar vacío');
-          setFileName('');
-        }
-      } catch (error) {
-        console.error('Error al procesar el archivo:', error);
-        alert('Error al leer el archivo. Verifica el formato.');
-        setFileName('');
-      }
-    };
-
-    reader.onerror = () => {
-      alert('Error al leer el archivo');
-    };
-
-    if (fileExtension === 'csv') {
-      reader.readAsText(file, 'UTF-8');
-    } else {
-      alert('Para archivos Excel (.xlsx, .xls) necesitarías instalar una librería adicional como "xlsx". Por ahora, usa CSV.');
-      reader.readAsBinaryString(file);
-    }
-  };
-
-  const parseCSV = (text) => {
-    const lines = text.split(/\r\n|\n|\r/);
-    const result = [];
-
-    if (lines.length === 0) return result;
-
-    const firstLine = lines[0];
-    const delimiter = firstLine.includes(';') ? ';' : ',';
-
-    const headers = firstLine.split(delimiter).map(h => h.trim());
-
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-
-      const values = line.split(delimiter);
-      const obj = {};
-
-      headers.forEach((header, index) => {
-        obj[header] = values[index] ? values[index].trim() : '';
+      const text = e.target.result;
+      const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim());
+      const headers = lines[0].split(lines[0].includes(';') ? ';' : ',').map(h => h.trim());
+      const data = lines.slice(1).map(line => {
+        const values = line.split(lines[0].includes(';') ? ';' : ',');
+        const obj = {};
+        headers.forEach((h, i) => obj[h] = values[i]?.trim() || '');
+        return obj;
       });
-
-      if (Object.values(obj).some(value => value !== '')) {
-        result.push(obj);
-      }
-    }
-
-    return result;
+      setGuestList(data);
+      setFileName(file.name);
+    };
+    reader.readAsText(file, 'UTF-8');
   };
 
-  const handleRemoveFile = () => {
-    setFileName('');
-    setGuestList([]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+  // --- LÓGICA DE DRAG VARIABLES ---
+  const handleDropVariable = (e) => {
+    e.preventDefault();
+    const variable = e.dataTransfer.getData('text/plain');
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      setMensajeCuerpo(mensajeCuerpo.substring(0, start) + variable + mensajeCuerpo.substring(end));
     }
   };
 
   const handleSubmit = async () => {
-    if (!title || !date) {
-      alert('Por favor rellena al menos el título y la fecha.');
-      return;
-    }
-
-    const dateObj = new Date(date + 'T' + (time || '00:00'));
-    const formattedDate = dateObj.toLocaleDateString('es-ES') + ' - ' + (time ? time + 'h' : '');
+    if (!title || !date) return alert('Título y fecha requeridos');
 
     try {
-      // 1. Actualizar datos del evento en Firebase
       if (editingEvent.id) {
         await actualizarEvento(editingEvent.id, {
           nombreEvento: title,
           direccion: address,
           fecha: date,
           hora: time,
-          // AÑADIDO: Configuración de salón en actualización
-          capacidadMaxima: totalSeats ? parseInt(totalSeats) : editingEvent.capacidadMaxima,
-          configuracionSalon: {
-            filas: rows ? parseInt(rows) : null,
-            columnas: columns ? parseInt(columns) : null
-          }
+          seatRows,
+          seatCols,
+          selectedSeats,
+          hiddenSeats,
+          mensajeAsunto,
+          mensajeCuerpo
+        });
+
+        if (guestList.length > 0 && fileName && !fileName.includes('Lista cargada')) {
+          await cargarInvitadosCSV(editingEvent.id, guestList);
+        }
+
+        const dateObj = new Date(date + 'T' + (time || '00:00'));
+        const formattedDate = dateObj.toLocaleDateString('es-ES') + ' - ' + (time ? time + 'h' : '');
+
+        onEditEvent({
+          ...editingEvent,
+          title, address, date: formattedDate,
+          seatRows, seatCols, selectedSeats, hiddenSeats,
+          guestList, mensajeAsunto, mensajeCuerpo
         });
       }
-
-      // 2. Si hay nuevos invitados cargados desde CSV, subirlos
-      if (guestList.length > 0 && Array.isArray(guestList) && (guestList[0].hasOwnProperty('Nombre') || guestList[0]?.hasOwnProperty('nombre'))) {
-        const confirmar = window.confirm(`Vas a importar ${guestList.length} invitados al evento. ¿Continuar?`);
-        if (confirmar && editingEvent.id) {
-          await cargarInvitadosCSV(editingEvent.id, guestList);
-          alert('Invitados importados correctamente');
-        }
-      }
-
-      const updatedEvent = {
-        ...editingEvent,
-        title,
-        address,
-        date: formattedDate,
-        guestList: guestList,
-        capacidadMaxima: totalSeats ? parseInt(totalSeats) : editingEvent.capacidadMaxima,
-        configuracionSalon: {
-          filas: rows ? parseInt(rows) : null,
-          columnas: columns ? parseInt(columns) : null
-        }
-      };
-
-      if (onEditEvent) {
-        onEditEvent(updatedEvent);
-      }
-
-      setIsEditing(false);
-      setEditingEvent(null);
-      resetForm();
-
+      handleCancelEdit();
     } catch (error) {
-      console.error("Error al actualizar evento:", error);
-      alert("Error al actualizar evento: " + error.message);
+      alert("Error al actualizar: " + error.message);
     }
   };
 
-  // --- RENDERIZADO DEL FORMULARIO DE EDICIÓN (DISEÑO MEJORADO Y PESTAÑAS) ---
+  // --- RENDERIZADO MODO EDICIÓN ---
   if (isEditing) {
     return (
-      <div className="flex-1 p-6 md:p-10 flex flex-col h-full overflow-hidden text-left">
-        <div className="bg-[#0f0f1b] rounded-3xl max-w-5xl w-full mx-auto shadow-2xl flex flex-col overflow-hidden max-h-full border border-white/5">
-
-          {/* Header del formulario de edición Mejorado */}
-          <div className="bg-gradient-to-r from-[#7738B0] to-[#592a85] pt-6 px-6 flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <button onClick={handleCancelEdit} className="mr-4 p-2 hover:bg-white/10 rounded-xl transition-colors text-white">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M19 12H5M12 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <h2 className="text-xl font-bold text-white">Editando evento</h2>
-              </div>
-              <span className="text-sm font-medium bg-black/20 px-3 py-1 rounded-full text-purple-100 border border-white/10">
-                {editingEvent?.title || 'Evento sin título'}
-              </span>
+      <div className="flex-1 p-6 md:p-10 flex flex-col h-full overflow-hidden text-left bg-[#0D0E22]">
+        <div className="bg-[#0f0f1b] rounded-[3rem] max-w-6xl w-full mx-auto shadow-2xl flex flex-col overflow-hidden border border-white/5 h-[90vh]">
+          
+          <div className="bg-gradient-to-r from-[#7738B0] to-[#592a85] pt-10 px-10 shrink-0">
+            <div className="flex items-center justify-between mb-8">
+               <h2 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-4">
+                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                 Editando Evento
+               </h2>
+               <span className="text-[10px] bg-black/30 px-5 py-2 rounded-full text-purple-200 border border-white/10 uppercase tracking-[0.3em] font-black">
+                 {editingEvent?.title || 'Evento'}
+               </span>
             </div>
-
-            <div className="flex gap-6">
-              <button 
-                onClick={() => setActiveTab('general')}
-                className={`pb-3 px-2 text-sm font-semibold tracking-wide border-b-2 transition-all duration-300 ${activeTab === 'general' ? 'border-white text-white' : 'border-transparent text-white/50 hover:text-white/80'}`}
-              >
-                Información General
-              </button>
-              <button 
-                onClick={() => setActiveTab('salon')}
-                className={`pb-3 px-2 text-sm font-semibold tracking-wide border-b-2 transition-all duration-300 ${activeTab === 'salon' ? 'border-white text-white' : 'border-transparent text-white/50 hover:text-white/80'}`}
-              >
-                Configuración de Salón
-              </button>
+            <div className="flex gap-10">
+              {['general', 'salon', 'mensaje'].map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`pb-5 text-[11px] font-black uppercase tracking-[0.2em] border-b-[5px] transition-all ${
+                    activeTab === tab ? 'border-white text-white' : 'border-transparent text-white/30 hover:text-white/60'
+                  }`}
+                >
+                  {tab === 'general' ? 'Información' : tab === 'salon' ? 'Salón' : 'Invitación'}
+                </button>
+              ))}
             </div>
           </div>
 
-          <div className="p-8 overflow-y-auto custom-scrollbar bg-[#0D0E22] flex-1">
-            <div className="flex flex-col md:flex-row gap-10">
-
-              {/* Foto del evento */}
-              <div className="flex flex-col gap-3">
-                <label className="text-gray-300 text-sm font-medium ml-1">Foto del evento</label>
-                <div className="w-40 h-40 border-2 border-dashed border-gray-600 rounded-2xl flex items-center justify-center cursor-pointer hover:border-[#7738B0] hover:bg-white/5 transition-all group bg-[#13111c]">
-                  <span className="text-5xl text-gray-500 group-hover:text-[#7738B0] transition-colors font-light relative top-[-2px]">+</span>
+          <div className="p-10 overflow-y-auto flex-1 custom-scrollbar bg-[#0D0E22]">
+            {activeTab === 'general' ? (
+              <div className="grid grid-cols-2 gap-8 animate-fadeIn">
+                <div className="col-span-2 flex flex-col gap-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Nombre del Evento</label>
+                  <input value={title} onChange={e => setTitle(e.target.value)} placeholder="EJ. GALA DE GRADUACIÓN" className="bg-[#1e1b2e] p-5 rounded-2xl text-white outline-none border border-transparent focus:border-[#7738B0] transition-all" />
+                </div>
+                <div className="col-span-2 flex flex-col gap-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Dirección</label>
+                  <input value={address} onChange={e => setAddress(e.target.value)} placeholder="DIRECCIÓN DEL EVENTO" className="bg-[#1e1b2e] p-5 rounded-2xl text-white outline-none border border-transparent focus:border-[#7738B0] transition-all" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Fecha</label>
+                  <input type="date" value={date} onChange={e => setDate(e.target.value)} className="bg-[#1e1b2e] p-5 rounded-2xl text-white outline-none" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Hora</label>
+                  <input type="time" value={time} onChange={e => setTime(e.target.value)} className="bg-[#1e1b2e] p-5 rounded-2xl text-white outline-none" />
+                </div>
+                <div className="col-span-2 mt-4">
+                  <div onClick={() => fileInputRef.current.click()} className="border-2 border-dashed border-white/10 p-10 rounded-[2rem] flex flex-col items-center gap-4 cursor-pointer hover:bg-white/[0.02] transition-all group">
+                     <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept=".csv" />
+                     <img src={excelIcon} className="w-12 h-12 opacity-20 group-hover:opacity-100 transition-opacity" alt="csv" />
+                     <p className="text-gray-500 font-bold text-sm">{fileName || "CARGAR LISTA DE INVITADOS (.CSV)"}</p>
+                     {guestList.length > 0 && <span className="text-[#7738B0] font-black">{guestList.length} DETECTADOS</span>}
+                  </div>
+                  
+                  {/* Vista previa de invitados (Excel Preview) */}
+                  {guestList.length > 0 && (
+                    <div className="mt-8 bg-black/20 rounded-[2rem] border border-white/5 overflow-hidden">
+                      <div className="p-4 bg-white/5 border-b border-white/5 flex justify-between items-center px-6">
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Vista Previa de Invitados</span>
+                        <span className="text-[10px] font-black text-purple-400">{guestList.length} Filas</span>
+                      </div>
+                      <div className="max-h-60 overflow-auto custom-scrollbar">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-black/40">
+                              {Object.keys(guestList[0]).map(h => (
+                                <th key={h} className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest border-b border-white/5">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {guestList.slice(0, 50).map((row, i) => (
+                              <tr key={i} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                                {Object.values(row).map((v, j) => (
+                                  <td key={j} className="p-4 text-xs text-gray-300 font-medium">
+                                    {typeof v === 'object' && v !== null 
+                                      ? (Array.isArray(v) ? `${v.length} personas` : '...') 
+                                      : String(v)}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {guestList.length > 50 && (
+                          <div className="p-4 text-center text-[10px] font-black text-gray-600 uppercase tracking-widest bg-black/20">
+                            Y {guestList.length - 50} filas más...
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
+            ) : activeTab === 'mensaje' ? (
+              <div className="flex flex-col md:flex-row gap-8 animate-fadeIn h-full">
+                <div className="flex-1 flex flex-col gap-6">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Asunto del Correo</label>
+                    <input value={mensajeAsunto} onChange={e => setMensajeAsunto(e.target.value)} placeholder="TU INVITACIÓN PARA {{nombre_evento}}" className="bg-[#1e1b2e] p-5 rounded-2xl text-white outline-none border border-transparent focus:border-[#7738B0]" />
+                  </div>
+                  <div className="flex flex-col gap-2 flex-1">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Cuerpo del Mensaje (Soporta Drag & Drop)</label>
+                    <textarea ref={textareaRef} value={mensajeCuerpo} onChange={e => setMensajeCuerpo(e.target.value)} onDragOver={e => e.preventDefault()} onDrop={handleDropVariable} className="bg-[#1e1b2e] p-6 rounded-[2rem] text-white outline-none border border-transparent focus:border-[#7738B0] flex-1 min-h-[300px] resize-none leading-relaxed" />
+                  </div>
+                </div>
+                <div className="w-full md:w-64 bg-black/20 p-6 rounded-[2rem] border border-white/5">
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Variables</p>
+                  <div className="flex flex-col gap-2">
+                    {variablesDisponibles.map(v => (
+                      <div key={v} draggable onDragStart={e => e.dataTransfer.setData('text/plain', v)} className="bg-gray-800 p-3 rounded-xl text-[10px] font-black text-purple-400 border border-purple-500/20 cursor-grab active:cursor-grabbing hover:bg-gray-700 transition-colors">
+                        {v}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-6 animate-fadeIn h-full">
+                <div className="flex flex-wrap gap-4 bg-black/20 p-4 rounded-xl border border-white/5 items-end">
+                  <div className="flex-1 min-w-[100px]">
+                    <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Filas</label>
+                    <input type="number" value={seatRows} onChange={e => setSeatRows(parseInt(e.target.value) || 1)} className="w-full bg-[#1e1b2e] p-2.5 rounded-lg text-white border border-white/5 focus:border-purple-500 outline-none" />
+                  </div>
+                  <div className="flex-1 min-w-[100px]">
+                    <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Columnas</label>
+                    <input type="number" value={seatCols} onChange={e => setSeatCols(parseInt(e.target.value) || 1)} className="w-full bg-[#1e1b2e] p-2.5 rounded-lg text-white border border-white/5 focus:border-purple-500 outline-none" />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setSeatEditMode(m => m === 'select' ? 'delete' : 'select')} className={`px-4 py-2.5 rounded-lg font-bold text-xs transition-all ${seatEditMode === 'delete' ? 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'bg-[#7738B0] text-white hover:bg-purple-600'}`}>
+                      {seatEditMode === 'delete' ? 'Modo Borrar Pasillos' : 'Modo Seleccionar Butacas'}
+                    </button>
+                    <button onClick={() => setSelectedSeats({})} className="px-4 py-2.5 rounded-lg font-bold text-xs bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all">Limpiar Selección</button>
+                  </div>
+                </div>
 
-              <div className="flex-1">
-                {/* PESTAÑA: INFORMACIÓN GENERAL */}
-                {activeTab === 'general' ? (
-                  <div className="grid grid-cols-2 gap-6 animate-fadeIn">
-                    <div className="col-span-2 flex flex-col gap-2">
-                      <label className="text-gray-300 text-sm font-medium ml-1">Nombre</label>
-                      <input
-                        type="text"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        className="bg-[#1e1b2e] border border-transparent p-4 rounded-xl focus:border-[#7738B0] focus:ring-1 focus:ring-[#7738B0] outline-none transition-all placeholder:text-gray-600 text-white"
-                      />
-                    </div>
-
-                    <div className="col-span-2 flex flex-col gap-2">
-                      <label className="text-gray-300 text-sm font-medium ml-1">Dirección</label>
-                      <input
-                        type="text"
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        className="bg-[#1e1b2e] border border-transparent p-4 rounded-xl focus:border-[#7738B0] focus:ring-1 focus:ring-[#7738B0] outline-none transition-all placeholder:text-gray-600 text-white"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="text-gray-300 text-sm font-medium ml-1">Fecha</label>
-                      <input
-                        type="date"
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                        className="bg-[#1e1b2e] border border-transparent p-4 rounded-xl text-gray-300 focus:border-[#7738B0] focus:ring-1 focus:ring-[#7738B0] outline-none transition-all"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="text-gray-300 text-sm font-medium ml-1">Hora</label>
-                      <input
-                        type="time"
-                        value={time}
-                        onChange={(e) => setTime(e.target.value)}
-                        className="bg-[#1e1b2e] border border-transparent p-4 rounded-xl text-gray-300 focus:border-[#7738B0] focus:ring-1 focus:ring-[#7738B0] outline-none transition-all"
-                      />
-                    </div>
-
-                    {/* Área de carga de invitados */}
-                    <div className="col-span-2 mt-2">
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileChange}
-                        accept=".csv,.xlsx,.xls"
-                        className="hidden"
-                      />
-
-                      {showUploadArea ? (
-                        <div
-                          className={`bg-[#1e1c30] p-6 rounded-xl border-2 border-dashed transition-all cursor-pointer ${dragActive ? 'border-[#7738B0] bg-[#7738B0]/10' : 'border-gray-600 hover:border-[#7738B0]/50'}`}
-                          onDragEnter={handleDrag}
-                          onDragLeave={handleDrag}
-                          onDragOver={handleDrag}
-                          onDrop={handleDrop}
-                          onClick={() => fileInputRef.current?.click()}
-                        >
-                          <div className="flex flex-col items-center justify-center gap-3">
-                            <div className="w-12 h-12">
-                              <img src={excelIcon} alt="Excel" className="w-full h-full object-contain opacity-80" />
-                            </div>
-                            <div className="text-center">
-                              <p className="text-sm font-medium text-gray-300">
-                                {dragActive ? 'Suelta el archivo aquí' : 'Arrastra tu archivo CSV/Excel aquí'}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">o haz clic para seleccionar</p>
-                              <p className="text-[10px] text-gray-600 mt-2">Formatos aceptados: .csv, .xlsx, .xls</p>
-                            </div>
-                          </div>
-                        </div>
-                      ) : fileName || guestList.length > 0 ? (
-                        <div className="bg-[#1e1c30] p-4 rounded-xl border border-[#7738B0]/50 shadow-lg shadow-purple-900/10">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className="w-10 h-10">
-                                <img src={excelIcon} alt="Excel" className="w-full h-full object-contain" />
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-sm font-semibold text-gray-300">
-                                  {fileName || `Lista de invitados (${guestList.length})`}
-                                </span>
-                                <span className="text-xs text-[#7738B0] font-medium">
-                                  {guestList.length} invitados {editingEvent?.guestList ? '(actualizados)' : 'cargados'}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <button onClick={() => setShowUploadArea(true)} className="text-xs text-white/60 hover:text-white px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors">
-                                {guestList.length > 0 ? 'Cambiar' : 'Cargar'}
+                <div className="bg-[#13111C] p-10 rounded-[3rem] border border-white/5 overflow-auto flex flex-col items-center min-h-[450px] relative shadow-inner">
+                  <div className="w-3/4 h-2 bg-gradient-to-r from-transparent via-[#7738B0] to-transparent mb-16 rounded-full shadow-[0_0_30px_#7738B0]"></div>
+                  <div className="flex flex-col gap-3 min-w-max pb-10">
+                    {Array.from({ length: seatRows }).map((_, r) => (
+                      <div key={r} className="flex gap-3 items-center">
+                        <span className="text-[11px] font-black text-gray-600 w-6 text-center">{getRowLabel(r)}</span>
+                        <div className="flex gap-2">
+                          {Array.from({ length: seatCols }).map((_, c) => {
+                            const id = `${getRowLabel(r)}-${c + 1}`;
+                            const isH = hiddenSeats[id];
+                            const isS = selectedSeats[id];
+                            return (
+                              <button 
+                                key={c}
+                                onClick={() => handleSeatClick(getRowLabel(r), c + 1)}
+                                className={`w-9 h-9 rounded-t-xl rounded-b-md text-[9px] font-bold transition-all relative border ${isH ? (seatEditMode === 'delete' ? 'bg-red-900/20 border-dashed border-red-500 opacity-60' : 'opacity-0 pointer-events-none') : (isS ? 'bg-green-500 border-green-400 text-white shadow-[0_0_10px_rgba(34,197,94,0.5)] scale-105' : 'bg-gray-800 border-white/5 text-gray-400 hover:bg-gray-700 hover:text-white hover:scale-105')}`}
+                              >
+                                {!isH && id}
                               </button>
-                              {guestList.length > 0 && (
-                                <button onClick={handleRemoveFile} className="text-xs text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors">
-                                  Quitar
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          {guestList.length > 0 && (
-                            <div className="mt-4 pt-4 border-t border-white/5">
-                              <p className="text-xs text-gray-400 mb-2">Vista previa de invitados:</p>
-                              <div className="max-h-32 overflow-y-auto bg-black/40 rounded-lg p-2 custom-scrollbar">
-                                <table className="w-full text-xs">
-                                  <thead>
-                                    <tr className="text-gray-500 border-b border-white/10">
-                                      {Object.keys(guestList[0]).map((key, i) => (
-                                        <th key={i} className="text-left p-1.5 font-medium">{key}</th>
-                                      ))}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {guestList.slice(0, 3).map((guest, idx) => (
-                                      <tr key={idx} className="border-b border-white/5 last:border-0">
-                                        {Object.values(guest).map((value, i) => {
-                                          let displayValue = value;
-                                          if (typeof value === 'object' && value !== null) {
-                                            if (value instanceof Date) displayValue = value.toLocaleDateString();
-                                            else if (value.seconds) displayValue = new Date(value.seconds * 1000).toLocaleDateString();
-                                            else if (Array.isArray(value)) displayValue = `[${value.length} items]`;
-                                            else displayValue = '...';
-                                          }
-                                          return <td key={i} className="p-1.5 text-gray-300">{displayValue}</td>;
-                                        })}
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                                {guestList.length > 3 && (
-                                  <p className="text-xs text-gray-500 text-center mt-2 italic">
-                                    ... y {guestList.length - 3} filas más
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          )}
+                            );
+                          })}
                         </div>
-                      ) : (
-                        <div
-                          className="bg-[#1e1b2e] p-4 rounded-xl flex items-center justify-between border border-transparent hover:border-[#7738B0]/50 transition-all cursor-pointer group pr-6"
-                          onClick={handleExcelClick}
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 flex-shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
-                              <img src={excelIcon} alt="Excel" className="w-full h-full object-contain" />
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-sm font-semibold text-gray-300 group-hover:text-white transition-colors">Lista de invitados</span>
-                              <span className="text-xs text-gray-500">
-                                {editingEvent?.guestList ?
-                                  `Tienes ${editingEvent.guestList.length} invitados registrados` :
-                                  'Sube un archivo .xlsx o .csv'}
-                              </span>
-                            </div>
-                          </div>
-                          <span className="text-[#7738B0] group-hover:text-purple-400 text-sm font-medium transition-colors">Actualizar lista</span>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    ))}
                   </div>
-                ) : (
-                  /* PESTAÑA: CONFIGURACIÓN DE SALÓN */
-                  <div className="grid grid-cols-2 gap-6 animate-fadeIn">
-                    <div className="col-span-2 bg-[#1e1b2e] p-5 rounded-xl border border-purple-500/20 mb-2">
-                      <p className="text-sm text-purple-200">Modifica la capacidad y distribución de los asientos del evento.</p>
-                    </div>
-
-                    <div className="col-span-2 flex flex-col gap-2">
-                      <label className="text-gray-300 text-sm font-medium ml-1">Total de Butacas / Capacidad</label>
-                      <input
-                        type="number"
-                        value={totalSeats}
-                        onChange={(e) => setTotalSeats(e.target.value)}
-                        className="bg-[#1e1b2e] border border-transparent p-4 rounded-xl focus:border-[#7738B0] focus:ring-1 focus:ring-[#7738B0] outline-none transition-all placeholder:text-gray-600 text-white"
-                        placeholder="Ej: 150"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="text-gray-300 text-sm font-medium ml-1">Número de Filas</label>
-                      <input
-                        type="number"
-                        value={rows}
-                        onChange={(e) => setRows(e.target.value)}
-                        className="bg-[#1e1b2e] border border-transparent p-4 rounded-xl text-gray-300 focus:border-[#7738B0] focus:ring-1 focus:ring-[#7738B0] outline-none transition-all"
-                        placeholder="Ej: 10"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="text-gray-300 text-sm font-medium ml-1">Número de Columnas</label>
-                      <input
-                        type="number"
-                        value={columns}
-                        onChange={(e) => setColumns(e.target.value)}
-                        className="bg-[#1e1b2e] border border-transparent p-4 rounded-xl text-gray-300 focus:border-[#7738B0] focus:ring-1 focus:ring-[#7738B0] outline-none transition-all"
-                        placeholder="Ej: 15"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="col-span-2 mt-10 flex flex-col gap-3">
-                  <Button
-                    onClick={handleSubmit}
-                    className={`w-full py-4 text-lg font-bold tracking-wide transition-all ${guestList.length > 0
-                      ? 'shadow-lg shadow-purple-900/40 bg-gradient-to-r from-[#7738B0] to-[#9a4ad4] hover:scale-[1.01]'
-                      : 'bg-[#7738B0] hover:bg-[#602c8c]'
-                      }`}
-                  >
-                    {guestList.length > editingEvent?.guestList?.length ?
-                      `Actualizar con ${guestList.length} invitados` :
-                      'Guardar cambios'}
-                  </Button>
-                  <button onClick={handleCancelEdit} className="w-full py-3 text-gray-500 hover:text-white transition-colors text-sm font-medium hover:bg-white/5 rounded-xl">
-                    Cancelar
-                  </button>
                 </div>
               </div>
-            </div>
+            )}
+          </div>
+          <div className="p-8 bg-[#0f0f1b] border-t border-white/5 flex gap-6">
+             <button onClick={handleCancelEdit} className="flex-1 p-6 text-gray-500 font-black text-xs tracking-widest uppercase hover:text-white transition-colors">Cancelar</button>
+             <Button onClick={handleSubmit} className="flex-[2] bg-gradient-to-r from-purple-600 to-purple-800 py-6 rounded-[2rem] font-black text-sm tracking-[0.2em] uppercase shadow-2xl shadow-purple-900/40 hover:scale-[1.02] active:scale-95 transition-all">GUARDAR CAMBIOS</Button>
           </div>
         </div>
       </div>
     );
   }
 
-  // --- RENDERIZADO DE LA LISTA NORMAL (DISEÑO MEJORADO) ---
+  // --- RENDERIZADO DE LA LISTA NORMAL (DISEÑO PREMIUM RECUPERADO) ---
   return (
-    <div className="flex-1 flex flex-col p-6 md:p-10">
+    <div className="flex-1 flex flex-col p-6 md:p-10 bg-[#0D0E22]">
       
-      {/* Header de la sección */}
-      <div className="flex justify-between items-center mb-10">
-        <div className="flex items-center gap-4 text-white">
-          <span className="bg-gradient-to-br from-[#7738B0] to-[#4A236D] p-3 rounded-xl shadow-lg shadow-purple-900/40 border border-purple-500/20">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="8" y1="6" x2="21" y2="6"></line>
-              <line x1="8" y1="12" x2="21" y2="12"></line>
-              <line x1="8" y1="18" x2="21" y2="18"></line>
-              <line x1="3" y1="6" x2="3.01" y2="6"></line>
-              <line x1="3" y1="12" x2="3.01" y2="12"></line>
-              <line x1="3" y1="18" x2="3.01" y2="18"></line>
-            </svg>
+      <div className="flex justify-between items-center mb-12">
+        <div className="flex items-center gap-5 text-white">
+          <span className="bg-gradient-to-br from-[#7738B0] to-[#4A236D] p-3.5 rounded-2xl shadow-2xl shadow-purple-900/50 border border-purple-500/30">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
           </span>
-          <h1 className="text-3xl font-black tracking-tight">Eventos</h1>
+          <div>
+            <h1 className="text-4xl font-black tracking-tight leading-none">Eventos</h1>
+            <p className="text-gray-500 text-sm mt-1 font-medium">Gestiona tus celebraciones y accesos</p>
+          </div>
         </div>
         
-        <Button onClick={onCreateClick} className="shadow-lg shadow-purple-900/30 font-bold px-6">
-          <span className="text-xl mr-1">+</span> Nuevo evento
+        <Button onClick={onCreateClick} className="shadow-2xl shadow-purple-900/40 font-black px-8 py-3.5 bg-gradient-to-r from-[#7738B0] to-[#9a4ad4] hover:scale-105 transition-transform">
+          <span className="text-xl mr-2">+</span> NUEVO EVENTO
         </Button>
       </div>
 
-      {/* Events List */}
       {displayEvents.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
           {displayEvents.map((event) => {
-            const eventTitle = event.title || event.nombreEvento || 'Evento sin nombre';
-            const eventDate = event.date || (event.fecha ? `${event.fecha}${event.hora ? ' - ' + event.hora : ''}` : 'Fecha no definida');
-            const eventGuestList = event.guestList || (event.invitados ? event.invitados : []);
-            const numInvitados = eventGuestList.length || event.totalInvitados || 0;
+            const title = event.title || event.nombreEvento || 'Evento sin nombre';
+            const date = event.date || (event.fecha ? `${event.fecha}${event.hora ? ' - ' + event.hora : ''}` : 'Fecha no definida');
+            const num = event.invitados?.length || event.totalInvitados || 0;
 
             return (
-              <div
-                key={event.id || event.title}
-                className="bg-[#2B2738] border border-white/5 rounded-2xl p-6 flex flex-col justify-between shadow-xl hover:bg-[#342F42] hover:-translate-y-1 hover:border-purple-500/30 transition-all duration-300 group"
-              >
-                <div className="flex items-start justify-between mb-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-gradient-to-br from-[#1E1B29] to-[#2a2638] border border-white/10 rounded-2xl flex items-center justify-center shadow-inner group-hover:border-purple-500/50 transition-colors">
-                      <span className="text-[#7738B0] font-black text-2xl group-hover:scale-110 transition-transform">
-                        {eventTitle.charAt(0).toUpperCase()}
-                      </span>
+              <div key={event.id} className="bg-[#2B2738] border border-white/5 rounded-[2rem] p-7 flex flex-col justify-between shadow-2xl hover:bg-[#342F42] hover:-translate-y-2 hover:border-purple-500/40 transition-all duration-500 group relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-600/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-purple-600/10 transition-colors"></div>
+                
+                <div className="flex items-start justify-between mb-8 relative z-10">
+                  <div className="flex items-center gap-5">
+                    <div className="w-16 h-16 bg-gradient-to-br from-[#1E1B29] to-[#2a2638] border border-white/10 rounded-3xl flex items-center justify-center shadow-2xl group-hover:border-purple-500/50 transition-all group-hover:scale-110">
+                      <span className="text-[#7738B0] font-black text-3xl">{title.charAt(0).toUpperCase()}</span>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <h3 className="text-white font-bold text-lg leading-tight truncate max-w-[180px]">{eventTitle}</h3>
-                      <span className="text-white/50 text-xs font-medium bg-black/20 px-2 py-1 rounded-md w-fit">{eventDate}</span>
+                    <div className="flex flex-col gap-1.5">
+                      <h3 className="text-white font-black text-xl leading-tight truncate max-w-[180px] tracking-tight">{title}</h3>
+                      <span className="text-purple-300/60 text-[10px] font-black bg-purple-500/10 px-3 py-1 rounded-full w-fit uppercase tracking-widest border border-purple-500/10">{date}</span>
                     </div>
+                  </div>
+                  
+                  <div className="flex gap-1.5">
+                    <button onClick={() => handleEditClick(event)} className="text-white/20 hover:text-white hover:bg-white/10 p-2.5 rounded-2xl transition-all" title="Editar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                    <button onClick={async (e) => { 
+                        e.stopPropagation(); 
+                        if(window.confirm(`¿Eliminar "${title}" permanentemente?`)) { 
+                          await eliminarEvento(event.id); 
+                          if(onDeleteEvent) onDeleteEvent(event.id); 
+                        } 
+                      }} className="text-white/20 hover:text-red-500 hover:bg-red-500/10 p-2.5 rounded-2xl transition-all"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-4 border-t border-white/5">
-                  <div className="flex items-center gap-2 bg-[#7738B0]/10 px-3 py-1.5 rounded-lg border border-[#7738B0]/20">
-                    <span className="text-xs font-bold text-[#b673f5]">
-                      {numInvitados} invitados
-                    </span>
+                <div className="flex items-center justify-between pt-6 border-t border-white/5 relative z-10">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Invitados</span>
+                    <span className="text-xl font-black text-white">{num} <span className="text-xs text-purple-400 font-bold tracking-normal">Confirmados</span></span>
                   </div>
-
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleEditClick(event)}
-                      className="text-white/40 hover:text-white hover:bg-white/10 p-2 rounded-xl transition-all"
-                      title="Editar"
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-                      </svg>
-                    </button>
-
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        if (isSendingEmails) return;
-
-                        const confirmar = window.confirm(`¿Estás seguro de que quieres enviar correos a todos los invitados de "${eventTitle}"?`);
-                        if (!confirmar) return;
-
-                        setIsSendingEmails(true);
-                        try {
-                          // LÓGICA ORIGINAL INTACTA
-                          const invitados = await getInvitadosByEvento(event.id);
-
-                          if (!invitados || invitados.length === 0) {
-                            alert("No hay invitados registrados en este evento.");
-                            setIsSendingEmails(false);
-                            return;
-                          }
-
-                          const result = await sendInvitationsToAll(event, invitados);
-                          alert(`Proceso finalizado.\nEnviados con éxito: ${result.success}\nFallidos: ${result.failed}`);
-
-                          if (result.failed > 0) {
-                            console.error("Errores en el envío:", result.errors);
-                          }
-                        } catch (error) {
-                          console.error("Error al procesar el envío masivo:", error);
-                          alert("Error al enviar las invitaciones: " + error.message);
-                        } finally {
-                          setIsSendingEmails(false);
-                        }
-                      }}
-                      disabled={isSendingEmails}
-                      className={`${isSendingEmails ? 'bg-[#7738B0]/20 text-[#7738B0]' : 'bg-[#7738B0]/10 hover:bg-[#7738B0] text-[#b673f5] hover:text-white'} transition-all p-2 rounded-xl border border-[#7738B0]/20 hover:border-transparent`}
-                      title={isSendingEmails ? "Enviando..." : "Enviar Invitaciones"}
-                    >
-                      {isSendingEmails ? (
-                        <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                        </svg>
-                      ) : (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="22" y1="2" x2="11" y2="13"></line>
-                          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                        </svg>
-                      )}
-                    </button>
-                  </div>
+                  
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (isSendingEmails) return;
+                      const conf = window.confirm(`¿Enviar correos masivos para "${title}"?`);
+                      if (!conf) return;
+                      setIsSendingEmails(true);
+                      try {
+                        const invitados = await getInvitadosByEvento(event.id);
+                        if (!invitados?.length) return alert("No hay invitados.");
+                        const result = await sendInvitationsToAll(event, invitados);
+                        alert(`Éxito: ${result.success} | Fallidos: ${result.failed}`);
+                      } catch (err) { alert(err.message); } finally { setIsSendingEmails(false); }
+                    }}
+                    disabled={isSendingEmails}
+                    className="bg-purple-600/10 hover:bg-purple-600 text-purple-400 hover:text-white p-4 rounded-[1.2rem] transition-all border border-purple-500/20 active:scale-95 shadow-lg group/btn"
+                  >
+                    {isSendingEmails ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="group-hover/btn:rotate-12 transition-transform"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>}
+                  </button>
                 </div>
               </div>
             );
           })}
         </div>
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center p-8 mt-10 bg-white/5 border border-dashed border-white/10 rounded-[2rem]">
-          <span className="text-6xl mb-6 opacity-80">📅</span>
-          <h1 className="text-white/80 text-2xl md:text-3xl font-bold text-center tracking-tight leading-tight">
-            Aún no hay eventos disponibles.
-          </h1>
-          <p className="text-gray-500 mt-2 text-center max-w-sm">Crea tu primer evento en la esquina superior derecha para empezar a gestionar tus invitados.</p>
+        <div className="flex-1 flex flex-col items-center justify-center p-20 mt-10 bg-white/[0.02] border-2 border-dashed border-white/5 rounded-[3rem]">
+          <div className="text-8xl mb-8 animate-bounce opacity-20">📅</div>
+          <h2 className="text-white text-3xl font-black text-center tracking-tight">Tu lista está vacía</h2>
+          <p className="text-gray-500 mt-4 text-center max-w-sm font-medium leading-relaxed">Comienza creando un nuevo evento para gestionar tus invitados, asientos y códigos QR de acceso.</p>
+          <button onClick={onCreateClick} className="mt-10 px-8 py-3 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-bold transition-all border border-white/10">Crear mi primer evento</button>
         </div>
       )}
-
     </div>
   );
 };
