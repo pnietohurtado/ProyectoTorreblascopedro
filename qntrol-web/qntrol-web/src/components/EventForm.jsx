@@ -201,8 +201,11 @@ const EventForm = ({ onSave, onCancel }) => {
                 </button>
               </div>
 
+              <div className="flex flex-col items-center shrink-0 mb-4">
+                <div className="w-3/4 h-2 bg-gradient-to-r from-transparent via-[#7738B0] to-transparent rounded-full shadow-[0_0_30px_#7738B0]"></div>
+              </div>
+
               <div className="bg-[#13111C] p-10 rounded-[3rem] border border-white/5 overflow-auto flex flex-col items-center min-h-[450px] relative shadow-inner">
-                <div className="w-3/4 h-2 bg-gradient-to-r from-transparent via-[#7738B0] to-transparent mb-16 rounded-full shadow-[0_0_30px_#7738B0]"></div>
                 <div className="flex flex-col gap-3 min-w-max pb-10">
                   {Array.from({ length: seatRows }).map((_, r) => (
                     <div key={r} className="flex gap-3 items-center">

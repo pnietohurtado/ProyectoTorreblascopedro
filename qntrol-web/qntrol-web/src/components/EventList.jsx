@@ -15,10 +15,8 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
   const [address, setAddress] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
-  const [dragActive, setDragActive] = useState(false);
   const [fileName, setFileName] = useState('');
   const [guestList, setGuestList] = useState([]);
-  const [showUploadArea, setShowUploadArea] = useState(false);
   const [isSendingEmails, setIsSendingEmails] = useState(false);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
@@ -330,9 +328,11 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
                     <button onClick={() => setSelectedSeats({})} className="px-4 py-2.5 rounded-lg font-bold text-xs bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all">Limpiar Selección</button>
                   </div>
                 </div>
+                <div className="flex flex-col items-center shrink-0 mb-4">
+                  <div className="w-3/4 h-2 bg-gradient-to-r from-transparent via-[#7738B0] to-transparent rounded-full shadow-[0_0_30px_#7738B0]"></div>
+                </div>
 
                 <div className="bg-[#13111C] p-10 rounded-[3rem] border border-white/5 overflow-auto flex flex-col items-center min-h-[450px] relative shadow-inner">
-                  <div className="w-3/4 h-2 bg-gradient-to-r from-transparent via-[#7738B0] to-transparent mb-16 rounded-full shadow-[0_0_30px_#7738B0]"></div>
                   <div className="flex flex-col gap-3 min-w-max pb-10">
                     {Array.from({ length: seatRows }).map((_, r) => (
                       <div key={r} className="flex gap-3 items-center">
