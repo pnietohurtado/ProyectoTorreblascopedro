@@ -111,7 +111,7 @@ export const sendInvitationsToAll = async (eventData, guestList, customSubject =
     // Si nadie en el grupo tiene email, usamos el del titular.
     const targets = personasConEmail.length > 0 ? personasConEmail : (guest.email ? [guest] : []);
     
-    let exitoEnInvitado = false;
+    let exitoEnAlumno = false;
 
     for (let i = 0; i < targets.length; i++) {
       const target = targets[i];
@@ -147,7 +147,7 @@ export const sendInvitationsToAll = async (eventData, guestList, customSubject =
         
         result.success++;
         emailsEnviadosEnLote.add(targetEmail);
-        exitoEnInvitado = true;
+        exitoEnAlumno = true;
       } catch (err) {
         result.failed++;
         result.errors.push({ guest: target.nombre, error: err.message });
@@ -158,7 +158,7 @@ export const sendInvitationsToAll = async (eventData, guestList, customSubject =
     }
 
     // 2. Si al menos un correo del invitado/grupo salió bien, marcamos en Firebase
-    if (exitoEnInvitado && guest.id) {
+    if (exitoEnAlumno && guest.id) {
       try {
         await marcarEmailEnviado(eventId, guest.id);
       } catch (e) {

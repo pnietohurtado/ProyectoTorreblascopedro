@@ -64,8 +64,8 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
     setSeatCols(event.seatCols || event.configuracionSalon?.columnas || 10);
     setSelectedSeats(event.selectedSeats || {});
     setHiddenSeats(event.hiddenSeats || {});
-    setGuestList(event.guestList || event.invitados || []);
-    setFileName(event.guestList?.length > 0 ? `Lista cargada (${event.guestList.length} invitados)` : '');
+    setGuestList(event.guestList || event.alumnos || []);
+    setFileName(event.guestList?.length > 0 ? `Lista cargada (${event.guestList.length} alumnos)` : '');
     
     // Cargar mensaje
     setMensajeAsunto(event.mensajeAsunto || '');
@@ -243,15 +243,15 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
                   <div onClick={() => fileInputRef.current.click()} className="border-2 border-dashed border-white/10 p-10 rounded-[2rem] flex flex-col items-center gap-4 cursor-pointer hover:bg-white/[0.02] transition-all group">
                      <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept=".csv" />
                      <img src={excelIcon} className="w-12 h-12 opacity-20 group-hover:opacity-100 transition-opacity" alt="csv" />
-                     <p className="text-gray-500 font-bold text-sm">{fileName || "CARGAR LISTA DE INVITADOS (.CSV)"}</p>
+                     <p className="text-gray-500 font-bold text-sm">{fileName || "CARGAR LISTA DE ALUMNOS (.CSV)"}</p>
                      {guestList.length > 0 && <span className="text-[#7738B0] font-black">{guestList.length} DETECTADOS</span>}
                   </div>
                   
-                  {/* Vista previa de invitados (Excel Preview) */}
+                  {/* Vista previa de alumnos (Excel Preview) */}
                   {guestList.length > 0 && (
                     <div className="mt-8 bg-black/20 rounded-[2rem] border border-white/5 overflow-hidden">
                       <div className="p-4 bg-white/5 border-b border-white/5 flex justify-between items-center px-6">
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Vista Previa de Invitados</span>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Vista Previa de Alumnos</span>
                         <span className="text-[10px] font-black text-purple-400">{guestList.length} Filas</span>
                       </div>
                       <div className="max-h-60 overflow-auto custom-scrollbar">
@@ -394,7 +394,8 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
           {displayEvents.map((event) => {
             const title = event.title || event.nombreEvento || 'Evento sin nombre';
             const date = event.date || (event.fecha ? `${event.fecha}${event.hora ? ' - ' + event.hora : ''}` : 'Fecha no definida');
-            const num = event.invitados?.length || event.totalInvitados || 0;
+            const numAlumnos = event.totalAlumnos || event.alumnos?.length || 0;
+            const numInvitados = event.totalInvitados || 0; // Solo si tenemos la nueva métrica separada
 
             return (
               <div key={event.id} className="bg-[#2B2738] border border-white/5 rounded-[2rem] p-7 flex flex-col justify-between shadow-2xl hover:bg-[#342F42] hover:-translate-y-2 hover:border-purple-500/40 transition-all duration-500 group relative overflow-hidden">
@@ -424,9 +425,15 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
                 </div>
 
                 <div className="flex items-center justify-between pt-6 border-t border-white/5 relative z-10">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Invitados</span>
-                    <span className="text-xl font-black text-white">{num} <span className="text-xs text-purple-400 font-bold tracking-normal">Confirmados</span></span>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Alumnos:</span>
+                      <span className="text-sm font-black text-white">{numAlumnos}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Invitados:</span>
+                      <span className="text-sm font-black text-purple-400">{numInvitados}</span>
+                    </div>
                   </div>
                   
                   <button
@@ -437,9 +444,9 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
                       if (!conf) return;
                       setIsSendingEmails(true);
                       try {
-                        const invitados = await getInvitadosByEvento(event.id);
-                        if (!invitados?.length) return alert("No hay invitados.");
-                        const result = await sendInvitationsToAll(event, invitados);
+                        const alumnos = await getInvitadosByEvento(event.id);
+                        if (!alumnos?.length) return alert("No hay alumnos.");
+                        const result = await sendInvitationsToAll(event, alumnos);
                         alert(`Éxito: ${result.success} | Fallidos: ${result.failed}`);
                       } catch (err) { alert(err.message); } finally { setIsSendingEmails(false); }
                     }}
@@ -457,7 +464,7 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
         <div className="flex-1 flex flex-col items-center justify-center p-20 mt-10 bg-white/[0.02] border-2 border-dashed border-white/5 rounded-[3rem]">
           <div className="text-8xl mb-8 animate-bounce opacity-20">📅</div>
           <h2 className="text-white text-3xl font-black text-center tracking-tight">Tu lista está vacía</h2>
-          <p className="text-gray-500 mt-4 text-center max-w-sm font-medium leading-relaxed">Comienza creando un nuevo evento para gestionar tus invitados, asientos y códigos QR de acceso.</p>
+          <p className="text-gray-500 mt-4 text-center max-w-sm font-medium leading-relaxed">Comienza creando un nuevo evento para gestionar tus alumnos, asientos y códigos QR de acceso.</p>
           <button onClick={onCreateClick} className="mt-10 px-8 py-3 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-bold transition-all border border-white/10">Crear mi primer evento</button>
         </div>
       )}

@@ -54,13 +54,13 @@ export const getEventosUsuario = async (emailParam = null) => {
     const eventos = [];
 
     for (const eventoDoc of eventosSnap.docs) {
-      const invitadosRef = collection(eventoDoc.ref, "invitados");
-      const invitadosSnap = await getDocs(invitadosRef);
+      const alumnosRef = collection(eventoDoc.ref, "alumnos");
+      const alumnosSnap = await getDocs(alumnosRef);
 
       eventos.push({
         id: eventoDoc.id,
         ...eventoDoc.data(),
-        invitados: invitadosSnap.docs.map(inv => ({ id: inv.id, ...inv.data() }))
+        alumnos: alumnosSnap.docs.map(inv => ({ id: inv.id, ...inv.data() }))
       });
     }
     return eventos;
@@ -95,6 +95,7 @@ export const crearEvento = async (eventoData) => {
     fechaCreacion: serverTimestamp(),
     estado: "activo",
     personasEscaneadas: 0,
+    totalAlumnos: 0,
     totalInvitados: 0,
     totalPersonas: 0,
     // Configuración de salón
@@ -113,60 +114,175 @@ export const crearEvento = async (eventoData) => {
 
 // --- GESTIÓN DE INVITADOS ---
 
+/** Normaliza cabeceras CSV (mayúsculas, espacios, tildes → ej. ACOMPAÑANTES ↔ acompanantes). */
+const normalizarCabeceraCSV = (clave) =>
+  String(clave)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_")
+    .trim();
+
+/** Obtiene valores del CSV ignorando mayúsculas / variaciones típicas de cabeceras. */
+const getCampoFlexible = (row, ...candidatos) => {
+  if (!row || typeof row !== "object") return undefined;
+  const map = {};
+  Object.keys(row).forEach((k) => {
+    map[normalizarCabeceraCSV(k)] = row[k];
+  });
+  for (const c of candidatos) {
+    const k = normalizarCabeceraCSV(c);
+    const v = map[k];
+    if (v !== undefined && v !== null && String(v).trim() !== "") return v;
+  }
+  return undefined;
+};
+
+/**
+ * Solo cuentan como invitados los acompañantes del alumno (nunca el propio alumno).
+ * - CSV (Invitados, num_invitados…): el número es el total de personas del grupo (incluido el alumno) → acompañantes = max(0, n − 1).
+ * - invitados_solo_extra: solo acompañantes, sin restar 1.
+ * - obj.numInvitados en camelCase (API): se mantiene como solo acompañantes (compatibilidad).
+ */
+const calcularNumAcompañantes = (invitadoData) => {
+  const soloExtras = getCampoFlexible(
+    invitadoData,
+    "invitados_solo_extra",
+    "invitados_extras",
+    "solo_invitados_extras"
+  );
+  if (soloExtras !== undefined) {
+    const n = parseInt(soloExtras, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(invitadoData, "numInvitados")) {
+    const n = parseInt(invitadoData.numInvitados, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  }
+
+  const soloAcompanantesCol = getCampoFlexible(
+    invitadoData,
+    "acompanantes",
+    "acompañantes",
+    "num_acompanantes",
+    "numero_acompanantes",
+    "invitados_extra"
+  );
+  if (soloAcompanantesCol !== undefined && String(soloAcompanantesCol).trim() !== "") {
+    const n = parseInt(soloAcompanantesCol, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  }
+
+  const rawTotal = getCampoFlexible(
+    invitadoData,
+    "total_personas",
+    "personas_total",
+    "plazas_grupo",
+    "invitados",
+    "num_invitados",
+    "n_invitados"
+  );
+  if (rawTotal !== undefined && String(rawTotal).trim() !== "") {
+    const n = parseInt(rawTotal, 10);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    return Math.max(0, n - 1);
+  }
+
+  return 0;
+};
+
+const obtenerNombreYEEmail = (invitadoData) => {
+  const nombre =
+    getCampoFlexible(
+      invitadoData,
+      "nombre",
+      "nombre_y_apellidos",
+      "nombre_apellidos",
+      "name",
+      "alumno",
+      "estudiante"
+    ) ??
+    invitadoData.nombre ??
+    "";
+  const emailPersonal =
+    getCampoFlexible(invitadoData, "email", "mail", "correo", "correo_electronico") ?? "";
+  const emailCorp =
+    getCampoFlexible(invitadoData, "email_corporativo", "email_institucional", "correo_corporativo") ?? "";
+  const email =
+    String(emailPersonal).trim() ||
+    String(emailCorp).trim() ||
+    String(invitadoData.email ?? "").trim();
+  return { nombre: String(nombre).trim(), email };
+};
+
 export const agregarInvitado = async (eventoId, invitadoData) => {
   const userEmail = getUserEmail();
   if (!userEmail) throw new Error("Usuario no autenticado");
 
-  const { nombre, email = "", numInvitados = 1, personas = [] } = invitadoData;
-  const numPersonas = parseInt(numInvitados) || 1;
-  const invitadoId = `${nombre.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}`;
+  const personasInput = Array.isArray(invitadoData.personas) ? invitadoData.personas : [];
+  const { nombre, email } = obtenerNombreYEEmail(invitadoData);
 
-  let personasArray = personas.length > 0 ? personas : [];
-  if (personasArray.length === 0) {
-    for (let i = 0; i < numPersonas; i++) {
+  const invitadoId = `${(nombre || "sin_nombre").replace(/\s+/g, "_").toLowerCase()}_${Date.now()}`;
+
+  let personasArray = [];
+  let numAcompañantes;
+
+  if (personasInput.length > 0) {
+    personasArray = personasInput.map((p, i) => ({
+      ...p,
+      tipo: i === 0 ? "alumno" : "invitado"
+    }));
+    numAcompañantes = Math.max(0, personasArray.length - 1);
+  } else {
+    numAcompañantes = calcularNumAcompañantes(invitadoData);
+    const totalPlazas = 1 + numAcompañantes;
+    for (let i = 0; i < totalPlazas; i++) {
       personasArray.push({
         id: `persona_${Date.now()}_${i}`,
         nombre: i === 0 ? nombre.trim() : `${nombre.trim()} - Acompañante ${i}`,
         email: i === 0 ? email.trim() : "",
         qrCode: `${eventoId}_${invitadoId}_p${i}`,
         escaneado: false,
-        fechaEscaneo: null
+        fechaEscaneo: null,
+        tipo: i === 0 ? "alumno" : "invitado"
       });
     }
   }
 
-  const invitadoRef = doc(db, "usuarios", userEmail, "eventos", eventoId, "invitados", invitadoId);
-  const invitadoCompleto = {
+  const alumnoRef = doc(db, "usuarios", userEmail, "eventos", eventoId, "alumnos", invitadoId);
+  const alumnoCompleto = {
     id: invitadoId,
     nombre: nombre.trim(),
     email: email.trim(),
-    numInvitados: numPersonas,
+    numAcompañantes,
     personas: personasArray,
     fechaRegistro: serverTimestamp(),
     escaneado: false,
     emailEnviado: invitadoData.emailEnviado || false
   };
 
-  await setDoc(invitadoRef, invitadoCompleto);
+  await setDoc(alumnoRef, alumnoCompleto);
   
   const eventoRef = doc(db, "usuarios", userEmail, "eventos", eventoId);
   const eventoSnap = await getDoc(eventoRef);
   if (eventoSnap.exists()) {
     const currentData = eventoSnap.data();
     await updateDoc(eventoRef, {
-      totalInvitados: (currentData.totalInvitados || 0) + 1,
-      totalPersonas: (currentData.totalPersonas || 0) + numPersonas
+      totalAlumnos: (currentData.totalAlumnos || 0) + 1,
+      totalInvitados: (currentData.totalInvitados || 0) + numAcompañantes,
+      totalPersonas: (currentData.totalPersonas || 0) + personasArray.length
     });
   }
 
-  return invitadoCompleto;
+  return alumnoCompleto;
 };
 
 export const marcarEmailEnviado = async (eventoId, invitadoId) => {
   const email = getUserEmail();
   if (!email) return false;
   try {
-    const invitadoRef = doc(db, "usuarios", email, "eventos", eventoId, "invitados", invitadoId);
+    const invitadoRef = doc(db, "usuarios", email, "eventos", eventoId, "alumnos", invitadoId);
     await updateDoc(invitadoRef, {
       emailEnviado: true,
       fechaEnvioEmail: serverTimestamp()
@@ -182,7 +298,7 @@ export const actualizarAsientoInvitado = async (eventoId, invitadoId, personaIdO
   const email = getUserEmail();
   if (!email) return false;
   try {
-    const invitadoRef = doc(db, "usuarios", email, "eventos", eventoId, "invitados", invitadoId);
+    const invitadoRef = doc(db, "usuarios", email, "eventos", eventoId, "alumnos", invitadoId);
     const invitadoSnap = await getDoc(invitadoRef);
     if (!invitadoSnap.exists()) return false;
     
@@ -226,8 +342,8 @@ export const cargarInvitadosCSV = async (eventoId, datosCSV) => {
 export const getInvitadosByEvento = async (eventoId) => {
   const email = getUserEmail();
   if (!email) return [];
-  const invitadosRef = collection(db, "usuarios", email, "eventos", eventoId, "invitados");
-  const snap = await getDocs(invitadosRef);
+  const alumnosRef = collection(db, "usuarios", email, "eventos", eventoId, "alumnos");
+  const snap = await getDocs(alumnosRef);
   return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
@@ -252,7 +368,7 @@ export const eliminarEvento = async (eventoId) => {
   if (!email) throw new Error("No autenticado");
   try {
     const eventoRef = doc(db, "usuarios", email, "eventos", eventoId);
-    const invitadosRef = collection(db, "usuarios", email, "eventos", eventoId, "invitados");
+    const invitadosRef = collection(db, "usuarios", email, "eventos", eventoId, "alumnos");
     const invitadosSnap = await getDocs(invitadosRef);
     const deletes = invitadosSnap.docs.map(d => deleteDoc(d.ref));
     await Promise.all(deletes);

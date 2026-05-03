@@ -177,7 +177,7 @@ const EventForm = ({ onSave, onCancel }) => {
                 <div onClick={() => fileInputRef.current.click()} className="border-2 border-dashed border-white/10 p-10 rounded-[2rem] flex flex-col items-center gap-4 cursor-pointer hover:bg-white/[0.02] transition-all group">
                    <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept=".csv" />
                    <img src={excelIcon} className="w-12 h-12 opacity-20 group-hover:opacity-100 transition-opacity" alt="csv" />
-                   <p className="text-gray-500 font-bold text-sm">{fileName || "CARGAR LISTA DE INVITADOS (.CSV)"}</p>
+                   <p className="text-gray-500 font-bold text-sm">{fileName || "CARGAR LISTA DE ALUMNOS (.CSV)"}</p>
                    {guestList.length > 0 && <span className="text-[#7738B0] font-black">{guestList.length} DETECTADOS</span>}
                 </div>
               </div>
