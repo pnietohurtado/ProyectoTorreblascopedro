@@ -10,33 +10,33 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
   const [editingEvent, setEditingEvent] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  // Estados del formulario
+  // Estados del formulario y configuración
+  const [activeTab, setActiveTab] = useState('general');
   const [title, setTitle] = useState('');
   const [address, setAddress] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
+  const [seatRows, setSeatRows] = useState(10);
+  const [seatCols, setSeatCols] = useState(10);
+  const [hiddenSeats, setHiddenSeats] = useState({});
+  const [seatEditMode, setSeatEditMode] = useState('select'); // 'select' o 'delete'
+
+  // Estados de Invitación
+  const [mensajeAsunto, setMensajeAsunto] = useState('');
+  const [mensajeCuerpo, setMensajeCuerpo] = useState('Hola {{nombre_alumno}},\n\nTu invitación para {{nombre_evento}} está lista.');
+
+  // Estados de CSV
   const [fileName, setFileName] = useState('');
   const [guestList, setGuestList] = useState([]);
   const [isSendingEmails, setIsSendingEmails] = useState(false);
+  
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
-
-  // --- CONFIGURACIÓN DEL MENSAJE ---
-  const [mensajeAsunto, setMensajeAsunto] = useState('');
-  const [mensajeCuerpo, setMensajeCuerpo] = useState('Hola {{nombre_alumno}},\n\nTu invitación para {{nombre_evento}} está lista.');
 
   const variablesDisponibles = [
     '{{nombre_alumno}}', '{{nombre_evento}}', '{{fecha_evento}}',
     '{{hora_evento}}', '{{nombre_salon}}', '{{asiento_asignado}}'
   ];
-
-  // --- LÓGICA DE ASIENTOS RECUPERADA ---
-  const [activeTab, setActiveTab] = useState('general');
-  const [seatRows, setSeatRows] = useState(10);
-  const [seatCols, setSeatCols] = useState(10);
-  const [selectedSeats, setSelectedSeats] = useState({});
-  const [hiddenSeats, setHiddenSeats] = useState({});
-  const [seatEditMode, setSeatEditMode] = useState('select'); // 'select' o 'delete'
 
   const handleEditClick = (event) => {
     setEditingEvent(event);
@@ -46,7 +46,6 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
     setTitle(event.title || event.nombreEvento || '');
     setAddress(event.address || event.direccion || '');
 
-    // Parseo de fecha
     if (event.fecha) {
       setDate(event.fecha);
       setTime(event.hora || '');
@@ -59,15 +58,12 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
       if (dateParts[1]) setTime(dateParts[1].replace('h', ''));
     }
 
-    // Carga de configuración de salón
-    setSeatRows(event.seatRows || event.configuracionSalon?.filas || 10);
-    setSeatCols(event.seatCols || event.configuracionSalon?.columnas || 10);
-    setSelectedSeats(event.selectedSeats || {});
+    setSeatRows(event.seatRows || 10);
+    setSeatCols(event.seatCols || 10);
     setHiddenSeats(event.hiddenSeats || {});
-    setGuestList(event.guestList || event.invitados || []);
-    setFileName(event.guestList?.length > 0 ? `Lista cargada (${event.guestList.length} invitados)` : '');
+    setGuestList(event.invitados || []);
+    setFileName(event.invitados?.length > 0 ? `Lista cargada (${event.invitados.length} invitados)` : '');
     
-    // Cargar mensaje
     setMensajeAsunto(event.mensajeAsunto || '');
     setMensajeCuerpo(event.mensajeCuerpo || 'Hola {{nombre_alumno}},\n\nTu invitación para {{nombre_evento}} está lista.');
   };
@@ -82,7 +78,7 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
     setTitle(''); setAddress(''); setDate(''); setTime('');
     setGuestList([]); setFileName('');
     setSeatRows(10); setSeatCols(10);
-    setSelectedSeats({}); setHiddenSeats({});
+    setHiddenSeats({});
     setActiveTab('general');
     setMensajeAsunto('');
     setMensajeCuerpo('Hola {{nombre_alumno}},\n\nTu invitación para {{nombre_evento}} está lista.');
@@ -106,17 +102,9 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
         next[seatId] ? delete next[seatId] : next[seatId] = true;
         return next;
       });
-    } else {
-      if (hiddenSeats[seatId]) return;
-      setSelectedSeats(prev => {
-        const next = { ...prev };
-        next[seatId] ? delete next[seatId] : next[seatId] = true;
-        return next;
-      });
     }
   };
 
-  // --- LÓGICA DE ARCHIVOS (CSV) ---
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) processFile(e.target.files[0]);
   };
@@ -139,7 +127,6 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
     reader.readAsText(file, 'UTF-8');
   };
 
-  // --- LÓGICA DE DRAG VARIABLES ---
   const handleDropVariable = (e) => {
     e.preventDefault();
     const variable = e.dataTransfer.getData('text/plain');
@@ -156,6 +143,15 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
 
     try {
       if (editingEvent.id) {
+        if (guestList.length > 0 && fileName && !fileName.includes('Lista cargada')) {
+          const confirmar = window.confirm(`Vas a importar ${guestList.length} invitados. ¿Continuar?`);
+          if (confirmar) {
+            await cargarInvitadosCSV(editingEvent.id, guestList);
+            alert("Importación finalizada.");
+          }
+        }
+
+        // GUARDADO EN FIREBASE
         await actualizarEvento(editingEvent.id, {
           nombreEvento: title,
           direccion: address,
@@ -163,24 +159,30 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
           hora: time,
           seatRows,
           seatCols,
-          selectedSeats,
           hiddenSeats,
           mensajeAsunto,
           mensajeCuerpo
         });
 
-        if (guestList.length > 0 && fileName && !fileName.includes('Lista cargada')) {
-          await cargarInvitadosCSV(editingEvent.id, guestList);
-        }
-
+        const nuevosInvitados = await getInvitadosByEvento(editingEvent.id);
         const dateObj = new Date(date + 'T' + (time || '00:00'));
         const formattedDate = dateObj.toLocaleDateString('es-ES') + ' - ' + (time ? time + 'h' : '');
 
         onEditEvent({
           ...editingEvent,
-          title, address, date: formattedDate,
-          seatRows, seatCols, selectedSeats, hiddenSeats,
-          guestList, mensajeAsunto, mensajeCuerpo
+          title, 
+          address, 
+          date: formattedDate,
+          nombreEvento: title,
+          direccion: address,
+          fecha: date,
+          hora: time,
+          seatRows, 
+          seatCols, 
+          hiddenSeats,
+          invitados: nuevosInvitados, 
+          mensajeAsunto, 
+          mensajeCuerpo
         });
       }
       handleCancelEdit();
@@ -189,7 +191,6 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
     }
   };
 
-  // --- RENDERIZADO MODO EDICIÓN ---
   if (isEditing) {
     return (
       <div className="flex-1 p-6 md:p-10 flex flex-col h-full overflow-hidden text-left bg-[#0D0E22]">
@@ -202,7 +203,7 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
                  Editando Evento
                </h2>
                <span className="text-[10px] bg-black/30 px-5 py-2 rounded-full text-purple-200 border border-white/10 uppercase tracking-[0.3em] font-black">
-                 {editingEvent?.title || 'Evento'}
+                 {editingEvent?.title || editingEvent?.nombreEvento || 'Evento'}
                </span>
             </div>
             <div className="flex gap-10">
@@ -225,11 +226,11 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
               <div className="grid grid-cols-2 gap-8 animate-fadeIn">
                 <div className="col-span-2 flex flex-col gap-2">
                   <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Nombre del Evento</label>
-                  <input value={title} onChange={e => setTitle(e.target.value)} placeholder="EJ. GALA DE GRADUACIÓN" className="bg-[#1e1b2e] p-5 rounded-2xl text-white outline-none border border-transparent focus:border-[#7738B0] transition-all" />
+                  <input value={title} onChange={e => setTitle(e.target.value)} placeholder="EJ. GALA DE GRADUACIÓN" className="bg-[#1e1b2e] p-5 rounded-2xl text-white outline-none border border-transparent focus:border-[#7738B0]" />
                 </div>
                 <div className="col-span-2 flex flex-col gap-2">
                   <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Dirección</label>
-                  <input value={address} onChange={e => setAddress(e.target.value)} placeholder="DIRECCIÓN DEL EVENTO" className="bg-[#1e1b2e] p-5 rounded-2xl text-white outline-none border border-transparent focus:border-[#7738B0] transition-all" />
+                  <input value={address} onChange={e => setAddress(e.target.value)} placeholder="DIRECCIÓN DEL EVENTO" className="bg-[#1e1b2e] p-5 rounded-2xl text-white outline-none border border-transparent focus:border-[#7738B0]" />
                 </div>
                 <div className="flex flex-col gap-2">
                   <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Fecha</label>
@@ -246,45 +247,6 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
                      <p className="text-gray-500 font-bold text-sm">{fileName || "CARGAR LISTA DE INVITADOS (.CSV)"}</p>
                      {guestList.length > 0 && <span className="text-[#7738B0] font-black">{guestList.length} DETECTADOS</span>}
                   </div>
-                  
-                  {/* Vista previa de invitados (Excel Preview) */}
-                  {guestList.length > 0 && (
-                    <div className="mt-8 bg-black/20 rounded-[2rem] border border-white/5 overflow-hidden">
-                      <div className="p-4 bg-white/5 border-b border-white/5 flex justify-between items-center px-6">
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Vista Previa de Invitados</span>
-                        <span className="text-[10px] font-black text-purple-400">{guestList.length} Filas</span>
-                      </div>
-                      <div className="max-h-60 overflow-auto custom-scrollbar">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="bg-black/40">
-                              {Object.keys(guestList[0]).map(h => (
-                                <th key={h} className="p-4 text-[10px] font-black text-gray-500 uppercase tracking-widest border-b border-white/5">{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {guestList.slice(0, 50).map((row, i) => (
-                              <tr key={i} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                                {Object.values(row).map((v, j) => (
-                                  <td key={j} className="p-4 text-xs text-gray-300 font-medium">
-                                    {typeof v === 'object' && v !== null 
-                                      ? (Array.isArray(v) ? `${v.length} personas` : '...') 
-                                      : String(v)}
-                                  </td>
-                                ))}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        {guestList.length > 50 && (
-                          <div className="p-4 text-center text-[10px] font-black text-gray-600 uppercase tracking-widest bg-black/20">
-                            Y {guestList.length - 50} filas más...
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             ) : activeTab === 'mensaje' ? (
@@ -307,6 +269,9 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
                         {v}
                       </div>
                     ))}
+                    <div className="mt-4 p-3 bg-white/5 rounded-xl border border-dashed border-white/10">
+                      <p className="text-[9px] text-gray-500 font-bold leading-tight">TIP: Puedes usar cualquier columna de tu CSV como variable escribiendo {'{{nombre_columna}}'} en minúsculas.</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -321,17 +286,11 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
                     <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Columnas</label>
                     <input type="number" value={seatCols} onChange={e => setSeatCols(parseInt(e.target.value) || 1)} className="w-full bg-[#1e1b2e] p-2.5 rounded-lg text-white border border-white/5 focus:border-purple-500 outline-none" />
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => setSeatEditMode(m => m === 'select' ? 'delete' : 'select')} className={`px-4 py-2.5 rounded-lg font-bold text-xs transition-all ${seatEditMode === 'delete' ? 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'bg-[#7738B0] text-white hover:bg-purple-600'}`}>
-                      {seatEditMode === 'delete' ? 'Modo Borrar Pasillos' : 'Modo Seleccionar Butacas'}
-                    </button>
-                    <button onClick={() => setSelectedSeats({})} className="px-4 py-2.5 rounded-lg font-bold text-xs bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all">Limpiar Selección</button>
-                  </div>
+                  <button onClick={() => setSeatEditMode(m => m === 'select' ? 'delete' : 'select')} className={`px-4 py-2.5 rounded-lg font-bold text-xs transition-all ${seatEditMode === 'delete' ? 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'bg-[#7738B0] text-white hover:bg-purple-600'}`}>
+                    {seatEditMode === 'delete' ? 'Modo Borrar Pasillos' : 'Modo Visualizar'}
+                  </button>
                 </div>
-                <div className="flex flex-col items-center shrink-0 mb-4">
-                  <div className="w-3/4 h-2 bg-gradient-to-r from-transparent via-[#7738B0] to-transparent rounded-full shadow-[0_0_30px_#7738B0]"></div>
-                </div>
-
+                
                 <div className="bg-[#13111C] p-10 rounded-[3rem] border border-white/5 overflow-auto flex flex-col items-center min-h-[450px] relative shadow-inner">
                   <div className="flex flex-col gap-3 min-w-max pb-10">
                     {Array.from({ length: seatRows }).map((_, r) => (
@@ -341,12 +300,18 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
                           {Array.from({ length: seatCols }).map((_, c) => {
                             const id = `${getRowLabel(r)}-${c + 1}`;
                             const isH = hiddenSeats[id];
-                            const isS = selectedSeats[id];
+                            const occupant = guestList.find(inv => inv.asiento === id || inv.personas?.some(p => p.asiento === id));
+                            const isOccupied = !!occupant;
+
                             return (
                               <button 
                                 key={c}
                                 onClick={() => handleSeatClick(getRowLabel(r), c + 1)}
-                                className={`w-9 h-9 rounded-t-xl rounded-b-md text-[9px] font-bold transition-all relative border ${isH ? (seatEditMode === 'delete' ? 'bg-red-900/20 border-dashed border-red-500 opacity-60' : 'opacity-0 pointer-events-none') : (isS ? 'bg-green-500 border-green-400 text-white shadow-[0_0_10px_rgba(34,197,94,0.5)] scale-105' : 'bg-gray-800 border-white/5 text-gray-400 hover:bg-gray-700 hover:text-white hover:scale-105')}`}
+                                title={isOccupied ? `Ocupado por: ${occupant.nombre}` : id}
+                                className={`w-9 h-9 rounded-t-xl rounded-b-md text-[9px] font-bold transition-all relative border 
+                                  ${isH ? (seatEditMode === 'delete' ? 'bg-red-900/20 border-dashed border-red-500 opacity-60' : 'opacity-0 pointer-events-none') 
+                                    : (isOccupied ? 'bg-red-600 border-red-500 text-white shadow-[0_0_10px_rgba(220,38,38,0.5)] scale-105' 
+                                      : 'bg-gray-800 border-white/5 text-gray-400 hover:bg-gray-700 hover:text-white hover:scale-105')}`}
                               >
                                 {!isH && id}
                               </button>
@@ -369,21 +334,18 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
     );
   }
 
-  // --- RENDERIZADO DE LA LISTA NORMAL (DISEÑO PREMIUM RECUPERADO) ---
   return (
     <div className="flex-1 flex flex-col p-6 md:p-10 bg-[#0D0E22]">
-      
       <div className="flex justify-between items-center mb-12">
         <div className="flex items-center gap-5 text-white">
-          <span className="bg-gradient-to-br from-[#7738B0] to-[#4A236D] p-3.5 rounded-2xl shadow-2xl shadow-purple-900/50 border border-purple-500/30">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+          <span className="bg-gradient-to-br from-[#7738B0] to-[#4A236D] p-3.5 rounded-2xl shadow-2xl border border-purple-500/30">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
           </span>
           <div>
             <h1 className="text-4xl font-black tracking-tight leading-none">Eventos</h1>
             <p className="text-gray-500 text-sm mt-1 font-medium">Gestiona tus celebraciones y accesos</p>
           </div>
         </div>
-        
         <Button onClick={onCreateClick} className="shadow-2xl shadow-purple-900/40 font-black px-8 py-3.5 bg-gradient-to-r from-[#7738B0] to-[#9a4ad4] hover:scale-105 transition-transform">
           <span className="text-xl mr-2">+</span> NUEVO EVENTO
         </Button>

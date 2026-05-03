@@ -1,6 +1,6 @@
 import QRCode from 'qrcode';
 import emailjs from '@emailjs/browser';
-import { marcarEmailEnviado, actualizarAsientoInvitado } from '../firebase/firebase';
+import { marcarEmailEnviado } from '../firebase/firebase';
 
 // CONFIGURACIÓN DE EMAILJS
 const SERVICE_ID = 'service_0rt1cqa';
@@ -29,17 +29,42 @@ const getQRBase64 = async (qrText) => {
 };
 
 /**
- * Sustituye variables en el mensaje personalizado
+ * Motor de sustitución universal e insensibile a mayúsculas
  */
 const replaceVariables = (text, eventData, guestData) => {
   if (!text) return '';
-  return text
-    .replace(/{{nombre_alumno}}/g, guestData.nombre || '')
-    .replace(/{{nombre_evento}}/g, eventData.nombreEvento || eventData.title || '')
-    .replace(/{{fecha_evento}}/g, eventData.fecha || eventData.date || '')
-    .replace(/{{hora_evento}}/g, eventData.hora || '')
-    .replace(/{{nombre_salon}}/g, eventData.direccion || eventData.address || '')
-    .replace(/{{asiento_asignado}}/g, guestData.asiento || 'Sin asiento asignado');
+  let result = text;
+
+  // Creamos un mapa de todas las variables posibles
+  const dataMap = {
+    // Variables de Evento
+    nombre_evento: eventData.nombreEvento || eventData.title || '',
+    fecha_evento: eventData.fecha || eventData.date || '',
+    hora_evento: eventData.hora || '',
+    nombre_salon: eventData.direccion || eventData.address || '',
+    ubicacion: eventData.direccion || eventData.address || '',
+    
+    // Variables de Invitado (Estándar)
+    nombre_alumno: guestData.nombre || '',
+    nombre: guestData.nombre || '',
+    asiento_asignado: guestData.asiento || 'Sin asiento',
+    email: guestData.email || '',
+    
+    // Incluir cualquier otro campo que venga en guestData (CSV)
+    ...guestData
+  };
+
+  // Recorremos el mapa y reemplazamos cada una de forma insesible a mayúsculas
+  Object.keys(dataMap).forEach(key => {
+    const value = dataMap[key];
+    if (typeof value === 'string' || typeof value === 'number') {
+      // Regex que busca {{key}} sin importar mayúsculas/minúsculas
+      const regex = new RegExp(`{{${key}}}`, 'gi');
+      result = result.replace(regex, value);
+    }
+  });
+
+  return result;
 };
 
 /**
@@ -48,10 +73,10 @@ const replaceVariables = (text, eventData, guestData) => {
 export const sendEventInvitation = async (eventData, guestData, customSubject = null, customBody = null) => {
   if (!guestData.email) return;
 
-  // Prioridad de QR: 1. El asignado directamente, 2. El de la primera persona, 3. El del invitado raíz
   const qrCode = guestData.qrCode || guestData.personas?.[0]?.qrCode || null;
   const qrBase64 = qrCode ? await getQRBase64(qrCode) : '';
 
+  // Aplicamos la sustitución al asunto y al cuerpo
   const finalSubject = customSubject 
     ? replaceVariables(customSubject, eventData, guestData) 
     : `Invitación a ${eventData.nombreEvento || eventData.title || 'Evento'}`;
@@ -75,8 +100,7 @@ export const sendEventInvitation = async (eventData, guestData, customSubject = 
   };
 
   try {
-    const response = await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
-    return response;
+    return await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
   } catch (error) {
     console.error(`Error enviando a ${guestData.email}:`, error);
     throw error;
@@ -84,87 +108,42 @@ export const sendEventInvitation = async (eventData, guestData, customSubject = 
 };
 
 /**
- * Envía correos masivos con Lógica de Asientos y Tracking
+ * Envía correos masivos con filtrado de prueba
  */
-export const sendInvitationsToAll = async (eventData, guestList, customSubject = null, customBody = null) => {
+export const sendInvitationsToAll = async (eventData, guestList) => {
   const result = { success: 0, failed: 0, skipped: 0, errors: [] };
-  const emailsEnviadosEnLote = new Set();
   const eventId = eventData.id || eventData.eventId;
-
-  // Lógica de Asientos: Obtenemos las llaves de los asientos seleccionados y ordenamos
-  const availableSeats = eventData.selectedSeats 
-    ? Object.keys(eventData.selectedSeats).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })) 
-    : [];
-
-  let nextSeatIndex = 0;
+  
+  const customSubject = eventData.mensajeAsunto;
+  const customBody = eventData.mensajeCuerpo;
 
   for (const guest of guestList) {
-    // 1. Evitar re-envíos si ya se marcó en Firebase previamente
+    const email = (guest.email || "").toLowerCase().trim();
+
+    // Filtro de seguridad para tus pruebas
+    if (email.endsWith('example.com')) {
+      result.skipped++;
+      continue;
+    }
+
     if (guest.emailEnviado) {
       result.skipped++;
       continue;
     }
 
-    const personas = guest.personas || [];
-    const personasConEmail = personas.filter(p => p.email && p.email.trim() !== '');
-    
-    // Si nadie en el grupo tiene email, usamos el del titular.
-    const targets = personasConEmail.length > 0 ? personasConEmail : (guest.email ? [guest] : []);
-    
-    let exitoEnInvitado = false;
-
-    for (let i = 0; i < targets.length; i++) {
-      const target = targets[i];
-      const targetEmail = target.email.toLowerCase().trim();
-
-      if (emailsEnviadosEnLote.has(targetEmail)) {
-        result.skipped++;
-        continue;
-      }
-
-      // Asignación automática de asiento basado en el mapa visual
-      let assignedSeat = guest.asiento || 'Sin asiento asignado';
-      if (nextSeatIndex < availableSeats.length && (!guest.asiento || guest.asiento === 'Sin asiento asignado')) {
-        const seatKey = availableSeats[nextSeatIndex];
-        assignedSeat = `Fila ${seatKey.split('-')[0]}, Col ${seatKey.split('-')[1]}`;
-        
-        // Guardar en Firebase de forma asíncrona pero esperando respuesta
-        try {
-          await actualizarAsientoInvitado(eventId, guest.id, target.id || i, assignedSeat);
-        } catch (e) {
-          console.error("Error guardando asiento en Firebase:", e);
-        }
-        nextSeatIndex++;
-      }
-
-      try {
-        await sendEventInvitation(eventData, {
-          ...target,
-          asiento: assignedSeat,
-          // Buscamos el QR específico de la persona o heredamos el del titular
-          qrCode: target.qrCode || (personas.length > 0 ? personas[0].qrCode : guest.qrCode)
-        }, customSubject, customBody);
-        
-        result.success++;
-        emailsEnviadosEnLote.add(targetEmail);
-        exitoEnInvitado = true;
-      } catch (err) {
-        result.failed++;
-        result.errors.push({ guest: target.nombre, error: err.message });
-      }
-
-      // Pequeña pausa para no saturar el servidor de EmailJS (Antispam)
-      await new Promise(r => setTimeout(r, 500));
-    }
-
-    // 2. Si al menos un correo del invitado/grupo salió bien, marcamos en Firebase
-    if (exitoEnInvitado && guest.id) {
-      try {
+    try {
+      await sendEventInvitation(eventData, guest, customSubject, customBody);
+      result.success++;
+      if (guest.id) {
         await marcarEmailEnviado(eventId, guest.id);
-      } catch (e) {
-        console.error("Error marcando como enviado:", e);
       }
+    } catch (err) {
+      result.failed++;
+      result.errors.push({ guest: guest.nombre, error: err.message });
     }
+
+    // Pausa anti-spam
+    await new Promise(r => setTimeout(r, 800));
   }
 
   return result;

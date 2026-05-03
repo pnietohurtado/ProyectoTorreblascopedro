@@ -10,8 +10,7 @@ import {
   getDocs,
   updateDoc,
   deleteDoc,
-  serverTimestamp,
-  arrayUnion
+  serverTimestamp
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -42,21 +41,46 @@ export const getUserData = async () => {
   return userSnap.exists() ? userSnap.data() : null;
 };
 
+// --- HELPERS DE ASIENTOS ---
+const getRowLabel = (index) => {
+  let label = '';
+  let temp = index;
+  while (temp >= 0) {
+    label = String.fromCharCode(65 + (temp % 26)) + label;
+    temp = Math.floor(temp / 26) - 1;
+  }
+  return label;
+};
+
+const encontrarAsientosLibres = (eventoData, cantidadNecesaria, occupiedSet) => {
+  const { seatRows = 10, seatCols = 10, hiddenSeats = {} } = eventoData;
+  const asignados = [];
+  for (let r = 0; r < seatRows; r++) {
+    const rowLabel = getRowLabel(r);
+    for (let c = 1; c <= seatCols; c++) {
+      const seatId = `${rowLabel}-${c}`;
+      if (!hiddenSeats[seatId] && !occupiedSet.has(seatId)) {
+        asignados.push(seatId);
+        occupiedSet.add(seatId);
+        if (asignados.length >= cantidadNecesaria) return asignados;
+      }
+    }
+  }
+  return asignados;
+};
+
 // --- GESTIÓN DE EVENTOS ---
 
 export const getEventosUsuario = async (emailParam = null) => {
   const email = emailParam || getUserEmail();
-  if (!email) return null;
-
+  if (!email) return [];
   try {
     const eventosRef = collection(db, "usuarios", email, "eventos");
     const eventosSnap = await getDocs(eventosRef);
     const eventos = [];
-
     for (const eventoDoc of eventosSnap.docs) {
       const invitadosRef = collection(eventoDoc.ref, "invitados");
       const invitadosSnap = await getDocs(invitadosRef);
-
       eventos.push({
         id: eventoDoc.id,
         ...eventoDoc.data(),
@@ -64,203 +88,169 @@ export const getEventosUsuario = async (emailParam = null) => {
       });
     }
     return eventos;
-  } catch (error) {
-    console.error("Error obteniendo eventos:", error);
-    return [];
-  }
+  } catch (error) { return []; }
 };
 
 export const crearEvento = async (eventoData) => {
   const user = getCurrentUser();
-  if (!user || !user.email) throw new Error("Usuario no autenticado");
-
-  const { 
-    nombreEvento, direccion, fecha, hora, descripcion = "", capacidadMaxima = 100,
-    seatRows = 10, seatCols = 10, selectedSeats = {}, hiddenSeats = {},
-    mensajeAsunto = "", mensajeCuerpo = "" 
-  } = eventoData;
-
-  const eventoId = `${nombreEvento.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}`;
+  if (!user || !user.email) throw new Error("No autenticado");
+  const eventoId = `${eventoData.nombreEvento.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}`;
   const eventoRef = doc(db, "usuarios", user.email, "eventos", eventoId);
-
-  const eventoCompleto = {
-    id: eventoId,
-    uid: user.uid,
-    nombreEvento: nombreEvento.trim(),
-    direccion: direccion.trim(),
-    fecha,
-    hora,
-    descripcion: descripcion.trim(),
-    capacidadMaxima: parseInt(capacidadMaxima) || 100,
-    fechaCreacion: serverTimestamp(),
-    estado: "activo",
-    personasEscaneadas: 0,
-    totalInvitados: 0,
-    totalPersonas: 0,
-    // Configuración de salón
-    seatRows,
-    seatCols,
-    selectedSeats,
-    hiddenSeats,
-    // Configuración de Email
-    mensajeAsunto,
-    mensajeCuerpo
-  };
-
-  await setDoc(eventoRef, eventoCompleto);
-  return { ...eventoCompleto, eventoId };
+  const data = { ...eventoData, id: eventoId, fechaCreacion: serverTimestamp(), totalInvitados: 0, totalPersonas: 0 };
+  await setDoc(eventoRef, data);
+  return data;
 };
 
 // --- GESTIÓN DE INVITADOS ---
 
-export const agregarInvitado = async (eventoId, invitadoData) => {
+export const agregarInvitado = async (eventoId, invitadoData, occupiedSet = null, skipEventUpdate = false) => {
   const userEmail = getUserEmail();
-  if (!userEmail) throw new Error("Usuario no autenticado");
+  if (!userEmail) throw new Error("No autenticado");
 
-  const { nombre, email = "", numInvitados = 1, personas = [] } = invitadoData;
-  const numPersonas = parseInt(numInvitados) || 1;
-  const invitadoId = `${nombre.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}`;
-
-  let personasArray = personas.length > 0 ? personas : [];
-  if (personasArray.length === 0) {
-    for (let i = 0; i < numPersonas; i++) {
-      personasArray.push({
-        id: `persona_${Date.now()}_${i}`,
-        nombre: i === 0 ? nombre.trim() : `${nombre.trim()} - Acompañante ${i}`,
-        email: i === 0 ? email.trim() : "",
-        qrCode: `${eventoId}_${invitadoId}_p${i}`,
-        escaneado: false,
-        fechaEscaneo: null
-      });
-    }
-  }
-
-  const invitadoRef = doc(db, "usuarios", userEmail, "eventos", eventoId, "invitados", invitadoId);
-  const invitadoCompleto = {
-    id: invitadoId,
-    nombre: nombre.trim(),
-    email: email.trim(),
-    numInvitados: numPersonas,
-    personas: personasArray,
-    fechaRegistro: serverTimestamp(),
-    escaneado: false,
-    emailEnviado: invitadoData.emailEnviado || false
-  };
-
-  await setDoc(invitadoRef, invitadoCompleto);
-  
   const eventoRef = doc(db, "usuarios", userEmail, "eventos", eventoId);
   const eventoSnap = await getDoc(eventoRef);
-  if (eventoSnap.exists()) {
-    const currentData = eventoSnap.data();
+  if (!eventoSnap.exists()) throw new Error("Evento no existe");
+  const eventoData = eventoSnap.data();
+
+  let internalOccupiedSet = occupiedSet;
+  if (!internalOccupiedSet) {
+    internalOccupiedSet = new Set();
+    const invitados = await getInvitadosByEvento(eventoId);
+    invitados.forEach(inv => {
+      if (inv.asiento) internalOccupiedSet.add(inv.asiento);
+      inv.personas?.forEach(p => { if (p.asiento) internalOccupiedSet.add(p.asiento); });
+    });
+  }
+
+  const numPersonas = parseInt(invitadoData.numInvitados) || 1;
+  const asientosLibres = encontrarAsientosLibres(eventoData, numPersonas, internalOccupiedSet);
+
+  const nombreLimpio = (invitadoData.nombre || "Invitado").replace(/\s+/g, "_").toLowerCase();
+  const invitadoId = `${nombreLimpio}_${Date.now()}`;
+  
+  const personasArray = [];
+  for (let i = 0; i < numPersonas; i++) {
+    const seat = asientosLibres[i] || "";
+    personasArray.push({
+      id: `p_${Date.now()}_${i}`,
+      nombre: i === 0 ? invitadoData.nombre : `${invitadoData.nombre} - Acomp ${i}`,
+      email: i === 0 ? (invitadoData.email || "") : "",
+      asiento: seat,
+      qrCode: `${eventoId}_${invitadoId}_p${i}`,
+      escaneado: false
+    });
+  }
+
+  const invitadoCompleto = {
+    ...invitadoData, // Esto incluye campos extra del CSV (ej: Empresa, Mesa, etc)
+    id: invitadoId,
+    personas: personasArray,
+    asiento: personasArray[0]?.asiento || "",
+    fechaRegistro: serverTimestamp()
+  };
+
+  await setDoc(doc(db, "usuarios", userEmail, "eventos", eventoId, "invitados", invitadoId), invitadoCompleto);
+  
+  if (!skipEventUpdate) {
     await updateDoc(eventoRef, {
-      totalInvitados: (currentData.totalInvitados || 0) + 1,
-      totalPersonas: (currentData.totalPersonas || 0) + numPersonas
+      totalInvitados: (eventoData.totalInvitados || 0) + 1,
+      totalPersonas: (eventoData.totalPersonas || 0) + numPersonas
     });
   }
 
   return invitadoCompleto;
 };
 
+export const cargarInvitadosCSV = async (eventoId, datosCSV) => {
+  const userEmail = getUserEmail();
+  const invitadosActuales = await getInvitadosByEvento(eventoId);
+  
+  const occupiedSet = new Set();
+  invitadosActuales.forEach(inv => {
+    if (inv.asiento) occupiedSet.add(inv.asiento);
+    inv.personas?.forEach(p => { if (p.asiento) occupiedSet.add(p.asiento); });
+  });
+
+  const emailsExistentes = new Set(invitadosActuales.map(i => i.email?.toLowerCase().trim()).filter(e => e));
+  let exitosos = 0; let totalPersonasNuevas = 0;
+
+  for (const dato of datosCSV) {
+    const email = (dato.Email || dato.email || "").toLowerCase().trim();
+    if (email && emailsExistentes.has(email)) continue;
+
+    const numInvitados = parseInt(dato.numInvitados || dato.invitados || 1);
+    
+    // Normalizar nombres de campos para Firebase (quitar espacios si los hay en el CSV)
+    const normalizedData = {};
+    Object.keys(dato).forEach(key => {
+      const normalizedKey = key.trim();
+      normalizedData[normalizedKey] = dato[key];
+    });
+
+    await agregarInvitado(eventoId, {
+      ...normalizedData,
+      nombre: normalizedData.Nombre || normalizedData.nombre || "Invitado",
+      email: email,
+      numInvitados: numInvitados
+    }, occupiedSet, true);
+
+    exitosos++;
+    totalPersonasNuevas += numInvitados;
+    if (email) emailsExistentes.add(email);
+  }
+
+  const eventoRef = doc(db, "usuarios", userEmail, "eventos", eventoId);
+  const eventoSnap = await getDoc(eventoRef);
+  const eventoData = eventoSnap.data();
+
+  await updateDoc(eventoRef, {
+    totalInvitados: (eventoData.totalInvitados || 0) + exitosos,
+    totalPersonas: (eventoData.totalPersonas || 0) + totalPersonasNuevas,
+    ultimaActualizacion: serverTimestamp()
+  });
+
+  return { exitosos };
+};
+
 export const marcarEmailEnviado = async (eventoId, invitadoId) => {
   const email = getUserEmail();
-  if (!email) return false;
-  try {
-    const invitadoRef = doc(db, "usuarios", email, "eventos", eventoId, "invitados", invitadoId);
-    await updateDoc(invitadoRef, {
-      emailEnviado: true,
-      fechaEnvioEmail: serverTimestamp()
-    });
-    return true;
-  } catch (error) {
-    console.error("Error al marcar email:", error);
-    return false;
-  }
+  const invitadoRef = doc(db, "usuarios", email, "eventos", eventoId, "invitados", invitadoId);
+  await updateDoc(invitadoRef, { emailEnviado: true, fechaEnvioEmail: serverTimestamp() });
+  return true;
 };
 
 export const actualizarAsientoInvitado = async (eventoId, invitadoId, personaIdOrIndex, seatInfo) => {
   const email = getUserEmail();
-  if (!email) return false;
-  try {
-    const invitadoRef = doc(db, "usuarios", email, "eventos", eventoId, "invitados", invitadoId);
-    const invitadoSnap = await getDoc(invitadoRef);
-    if (!invitadoSnap.exists()) return false;
-    
-    const data = invitadoSnap.data();
-    const personas = data.personas || [];
-    const nuevasPersonas = personas.map((p, index) => {
-      const isMatch = p.id === personaIdOrIndex || index === personaIdOrIndex || (index === 0 && personaIdOrIndex === 'principal');
-      return isMatch ? { ...p, asiento: seatInfo } : p;
-    });
-    
-    const updateData = { personas: nuevasPersonas, ultimaActualizacionAsiento: serverTimestamp() };
-    if (personaIdOrIndex === 'principal' || personaIdOrIndex === 0) updateData.asiento = seatInfo;
-    
-    await updateDoc(invitadoRef, updateData);
-    return true;
-  } catch (error) {
-    return false;
-  }
-};
-
-export const cargarInvitadosCSV = async (eventoId, datosCSV) => {
-  const email = getUserEmail();
-  if (!email) throw new Error("No autenticado");
-  const invitadosActuales = await getInvitadosByEvento(eventoId);
-  const emailsExistentes = new Set(invitadosActuales.map(i => i.email?.toLowerCase().trim()).filter(e => e));
-
-  let exitosos = 0; let duplicados = 0;
-  for (const dato of datosCSV) {
-    const emailInvitado = (dato.Email || dato.email || "").toLowerCase().trim();
-    if (emailInvitado && emailsExistentes.has(emailInvitado)) {
-      duplicados++;
-      continue;
-    }
-    await agregarInvitado(eventoId, dato);
-    exitosos++;
-    if (emailInvitado) emailsExistentes.add(emailInvitado);
-  }
-  return { exitosos, duplicados };
+  const invitadoRef = doc(db, "usuarios", email, "eventos", eventoId, "invitados", invitadoId);
+  const snap = await getDoc(invitadoRef);
+  const data = snap.data();
+  const nuevasPersonas = (data.personas || []).map((p, index) => {
+    const isMatch = p.id === personaIdOrIndex || index === personaIdOrIndex || (index === 0 && personaIdOrIndex === 'principal');
+    return isMatch ? { ...p, asiento: seatInfo } : p;
+  });
+  const updateData = { personas: nuevasPersonas };
+  if (personaIdOrIndex === 'principal' || personaIdOrIndex === 0) updateData.asiento = seatInfo;
+  await updateDoc(invitadoRef, updateData);
+  return true;
 };
 
 export const getInvitadosByEvento = async (eventoId) => {
   const email = getUserEmail();
   if (!email) return [];
-  const invitadosRef = collection(db, "usuarios", email, "eventos", eventoId, "invitados");
-  const snap = await getDocs(invitadosRef);
+  const snap = await getDocs(collection(db, "usuarios", email, "eventos", eventoId, "invitados"));
   return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
-export const actualizarEvento = async (eventoId, datosActualizados) => {
+export const actualizarEvento = async (eventoId, data) => {
   const email = getUserEmail();
-  if (!email) throw new Error("No autenticado");
-  const eventoRef = doc(db, "usuarios", email, "eventos", eventoId);
-  
-  // Limpieza para no enviar campos undefined
-  const cleanData = {};
-  Object.keys(datosActualizados).forEach(key => {
-    if (datosActualizados[key] !== undefined) cleanData[key] = datosActualizados[key];
-  });
-  cleanData.ultimaActualizacion = serverTimestamp();
-
-  await updateDoc(eventoRef, cleanData);
-  return true;
+  await updateDoc(doc(db, "usuarios", email, "eventos", eventoId), { ...data, ultimaActualizacion: serverTimestamp() });
 };
 
 export const eliminarEvento = async (eventoId) => {
   const email = getUserEmail();
-  if (!email) throw new Error("No autenticado");
-  try {
-    const eventoRef = doc(db, "usuarios", email, "eventos", eventoId);
-    const invitadosRef = collection(db, "usuarios", email, "eventos", eventoId, "invitados");
-    const invitadosSnap = await getDocs(invitadosRef);
-    const deletes = invitadosSnap.docs.map(d => deleteDoc(d.ref));
-    await Promise.all(deletes);
-    await deleteDoc(eventoRef);
-    return true;
-  } catch (error) {
-    throw error;
-  }
+  const invitados = await getDocs(collection(db, "usuarios", email, "eventos", eventoId, "invitados"));
+  await Promise.all(invitados.docs.map(d => deleteDoc(d.ref)));
+  await deleteDoc(doc(db, "usuarios", email, "eventos", eventoId));
 };
 
 export { app, auth, analytics, db };

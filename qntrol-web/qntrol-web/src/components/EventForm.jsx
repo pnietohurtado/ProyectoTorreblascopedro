@@ -119,7 +119,8 @@ const EventForm = ({ onSave, onCancel }) => {
       });
 
       if (guestList.length > 0) {
-        await cargarInvitadosCSV(result.eventoId, guestList);
+        // CORRECCIÓN: Usar result.id en lugar de result.eventoId
+        await cargarInvitadosCSV(result.id, guestList);
       }
       onSave(result);
     } catch (error) {
