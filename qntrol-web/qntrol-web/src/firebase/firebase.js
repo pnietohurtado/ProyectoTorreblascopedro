@@ -175,27 +175,34 @@ export const cargarInvitadosCSV = async (eventoId, datosCSV) => {
   let exitosos = 0; let totalPersonasNuevas = 0;
 
   for (const dato of datosCSV) {
-    const email = (dato.Email || dato.email || "").toLowerCase().trim();
-    if (email && emailsExistentes.has(email)) continue;
-
-    const numInvitados = parseInt(dato.numInvitados || dato.invitados || 1);
-    
-    // Normalizar nombres de campos para Firebase (quitar espacios si los hay en el CSV)
+    // Normalizar nombres de campos (quitar espacios y mayúsculas para comparar)
     const normalizedData = {};
     Object.keys(dato).forEach(key => {
-      const normalizedKey = key.trim();
-      normalizedData[normalizedKey] = dato[key];
+      normalizedData[key.trim().toUpperCase()] = dato[key];
     });
 
+    const emailCorp = (normalizedData['EMAIL CORPORATIVO'] || "").toLowerCase().trim();
+    const emailPers = (normalizedData['EMAIL'] || "").toLowerCase().trim();
+    
+    // Priorizar el corporativo si termina en @alu.medac.es
+    const email = (emailCorp.endsWith('@alu.medac.es')) ? emailCorp : (emailPers || emailCorp);
+    
+    if (email && emailsExistentes.has(email)) continue;
+
+    const acompanantesRaw = parseInt(normalizedData['ACOMPAÑANTES']);
+    const acompanantes = isNaN(acompanantesRaw) ? 0 : acompanantesRaw;
+    const numTotal = 1 + acompanantes;
+    
     await agregarInvitado(eventoId, {
       ...normalizedData,
-      nombre: normalizedData.Nombre || normalizedData.nombre || "Invitado",
+      nombre: normalizedData['NOMBRE Y APELLIDOS'] || "Invitado",
       email: email,
-      numInvitados: numInvitados
+      numInvitados: numTotal,
+      asistencia: normalizedData['ASISTENCIA'] || ""
     }, occupiedSet, true);
 
     exitosos++;
-    totalPersonasNuevas += numInvitados;
+    totalPersonasNuevas += numTotal;
     if (email) emailsExistentes.add(email);
   }
 

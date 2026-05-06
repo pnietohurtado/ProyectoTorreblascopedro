@@ -91,8 +91,54 @@ const FileUpload = ({ onFileUpload }) => {
     return result;
   };
 
+  // Función para descargar plantilla
+  const downloadTemplate = () => {
+    const headers = ['NOMBRE Y APELLIDOS', 'EMAIL', 'EMAIL CORPORATIVO', 'ASISTENCIA', 'ACOMPAÑANTES'];
+    const rows = [];
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'plantilla_invitados.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
-    <div className="file-upload-container">
+    <div className="file-upload-container" style={{ width: '100%', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+        <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#666', textTransform: 'uppercase', letterSpacing: '1px' }}>
+          Importar Invitados
+        </span>
+        <button
+          onClick={downloadTemplate}
+          style={{
+            fontSize: '11px',
+            fontWeight: '900',
+            color: '#7738B0',
+            background: 'rgba(119, 56, 176, 0.1)',
+            border: '1px solid rgba(119, 56, 176, 0.3)',
+            padding: '6px 12px',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            textTransform: 'uppercase',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseOver={(e) => e.target.style.background = 'rgba(119, 56, 176, 0.2)'}
+          onMouseOut={(e) => e.target.style.background = 'rgba(119, 56, 176, 0.1)'}
+        >
+          📥 Descargar Plantilla
+        </button>
+      </div>
+
       <div
         className={`drag-drop-area ${dragActive ? 'active' : ''}`}
         onDragEnter={handleDrag}
@@ -101,13 +147,14 @@ const FileUpload = ({ onFileUpload }) => {
         onDrop={handleDrop}
         onClick={handleClick}
         style={{
-          border: dragActive ? '2px dashed #4CAF50' : '2px dashed #ccc',
+          border: dragActive ? '2px dashed #7738B0' : '2px dashed rgba(255,255,255,0.1)',
           padding: '40px 20px',
           textAlign: 'center',
-          borderRadius: '8px',
+          borderRadius: '24px',
           cursor: 'pointer',
-          backgroundColor: dragActive ? '#f0f8ff' : '#f9f9f9',
-          transition: 'all 0.3s ease'
+          backgroundColor: dragActive ? 'rgba(119, 56, 176, 0.05)' : 'rgba(255,255,255,0.02)',
+          transition: 'all 0.3s ease',
+          color: '#fff'
         }}
       >
         <input
@@ -120,36 +167,38 @@ const FileUpload = ({ onFileUpload }) => {
         
         {fileName ? (
           <div>
-            <p>Archivo seleccionado:</p>
-            <p><strong>{fileName}</strong></p>
-            <p>Haz clic o arrastra otro archivo para cambiar</p>
+            <p style={{ margin: '0 0 5px 0', fontSize: '14px', color: '#888' }}>Archivo seleccionado:</p>
+            <p style={{ margin: '0 0 10px 0', fontSize: '16px', fontWeight: '900', color: '#7738B0' }}>{fileName}</p>
+            <p style={{ margin: '0', fontSize: '12px', color: '#555' }}>Haz clic o arrastra otro archivo para cambiar</p>
           </div>
         ) : (
-          <div>
-            <p>📁 Arrastra y suelta tu archivo CSV aquí</p>
-            <p>o</p>
-            <p>Haz clic para seleccionar un archivo</p>
-            <p style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
-              Solo archivos CSV (.csv)
-            </p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '32px', opacity: '0.5' }}>📄</span>
+            <p style={{ margin: '0', fontWeight: 'bold', fontSize: '14px', color: '#aaa' }}>Arrastra y suelta tu archivo CSV aquí</p>
+            <p style={{ margin: '0', fontSize: '12px', color: '#666' }}>o haz clic para seleccionar</p>
           </div>
         )}
       </div>
       
       {fileName && (
         <button
-          onClick={() => {
+          onClick={(e) => {
+            e.stopPropagation();
             setFileName('');
             if (inputRef.current) inputRef.current.value = '';
           }}
           style={{
-            marginTop: '10px',
-            padding: '5px 15px',
-            backgroundColor: '#ff6b6b',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
+            marginTop: '15px',
+            padding: '8px 20px',
+            backgroundColor: 'rgba(255, 107, 107, 0.1)',
+            color: '#ff6b6b',
+            border: '1px solid rgba(255, 107, 107, 0.3)',
+            borderRadius: '12px',
+            cursor: 'pointer',
+            fontSize: '11px',
+            fontWeight: 'bold',
+            textTransform: 'uppercase',
+            letterSpacing: '1px'
           }}
         >
           Quitar archivo

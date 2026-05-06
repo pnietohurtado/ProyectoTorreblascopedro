@@ -191,6 +191,26 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
     }
   };
 
+  const downloadTemplateCSV = () => {
+    const headers = ['NOMBRE Y APELLIDOS', 'EMAIL', 'EMAIL CORPORATIVO', 'ASISTENCIA', 'ACOMPAÑANTES'];
+    const rows = [];
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'plantilla_invitados.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (isEditing) {
     return (
       <div className="flex-1 p-6 md:p-10 flex flex-col h-full overflow-hidden text-left bg-[#0D0E22]">
@@ -240,7 +260,20 @@ const EventList = ({ events, onEditEvent, onDeleteEvent, onCreateClick }) => {
                   <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Hora</label>
                   <input type="time" value={time} onChange={e => setTime(e.target.value)} className="bg-[#1e1b2e] p-5 rounded-2xl text-white outline-none" />
                 </div>
-                <div className="col-span-2 mt-4">
+
+                <div className="col-span-2 mt-4 flex flex-col gap-4">
+                  <div className="flex justify-between items-center px-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Lista de Invitados</label>
+                    <button 
+                      onClick={downloadTemplateCSV}
+                      className="flex items-center gap-2 text-[#7738B0] hover:text-purple-400 transition-colors text-[10px] font-black uppercase tracking-widest"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                      </svg>
+                      Descargar Plantilla .CSV
+                    </button>
+                  </div>
                   <div onClick={() => fileInputRef.current.click()} className="border-2 border-dashed border-white/10 p-10 rounded-[2rem] flex flex-col items-center gap-4 cursor-pointer hover:bg-white/[0.02] transition-all group">
                      <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept=".csv" />
                      <img src={excelIcon} className="w-12 h-12 opacity-20 group-hover:opacity-100 transition-opacity" alt="csv" />
