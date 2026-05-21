@@ -33,6 +33,8 @@ public class SettingsActivity extends AppCompatActivity {
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
         
         MaterialSwitch switchTheme = findViewById(R.id.switchTheme);
+        MaterialSwitch switchScanMode = findViewById(R.id.switchScanMode);
+        TextView tvScanModeTitle = findViewById(R.id.tvScanModeTitle);
         TextView tvCurrentLang = findViewById(R.id.tvCurrentLang);
         
         // Setup Theme Switch
@@ -42,6 +44,20 @@ public class SettingsActivity extends AppCompatActivity {
             ThemeHelper.setTheme(this, isChecked ? ThemeHelper.THEME_DARK : ThemeHelper.THEME_LIGHT);
             recreate();
         });
+
+        boolean isAutoMode = getSharedPreferences("QrSettings", MODE_PRIVATE)
+                .getBoolean("auto_mode", true);
+        switchScanMode.setChecked(isAutoMode);
+        updateScanModeTitle(tvScanModeTitle, isAutoMode);
+        switchScanMode.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            getSharedPreferences("QrSettings", MODE_PRIVATE)
+                    .edit()
+                    .putBoolean("auto_mode", isChecked)
+                    .apply();
+            updateScanModeTitle(tvScanModeTitle, isChecked);
+        });
+        findViewById(R.id.cardScanMode).setOnClickListener(v ->
+                switchScanMode.setChecked(!switchScanMode.isChecked()));
 
         // Setup Language Card
         String currentLang = LanguageHelper.getSelectedLanguage(this);
@@ -69,6 +85,10 @@ public class SettingsActivity extends AppCompatActivity {
                 })
                 .setNegativeButton(R.string.btn_cancel, null)
                 .show();
+    }
+
+    private void updateScanModeTitle(TextView tv, boolean isAutoMode) {
+        tv.setText(isAutoMode ? "Modo Automático" : "Modo Manual");
     }
 
     private void showLanguageDialog() {

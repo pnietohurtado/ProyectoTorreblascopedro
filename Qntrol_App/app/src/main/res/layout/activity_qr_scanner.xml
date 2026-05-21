@@ -71,48 +71,87 @@
 
         <LinearLayout
             android:id="@+id/cardFeedback"
-            android:layout_width="300dp"
+            android:layout_width="320dp"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="center"
-            android:padding="24dp"
-            android:background="@drawable/bg_rounded_feedback">
+            android:clipToOutline="true"
+            android:background="@drawable/bg_feedback_card">
+
+            <View
+                android:id="@+id/viewFeedbackAccent"
+                android:layout_width="match_parent"
+                android:layout_height="6dp"
+                android:background="#43A047" />
 
             <ImageView
                 android:id="@+id/ivFeedbackIcon"
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:layout_marginBottom="16dp"/>
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="18dp"
+                android:background="@drawable/bg_feedback_icon_circle"
+                android:padding="18dp" />
 
             <TextView
-                android:id="@+id/tvFeedbackMessage"
-                android:layout_width="wrap_content"
+                android:id="@+id/tvFeedbackTitle"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginHorizontal="24dp"
                 android:gravity="center"
-                android:text="MENSAJE"
-                android:textColor="@color/white"
-                android:textSize="20sp"
+                android:text="Acceso permitido"
+                android:textColor="#2B2738"
+                android:textSize="22sp"
                 android:fontFamily="@font/inter_bold" />
+
+            <TextView
+                android:id="@+id/tvFeedbackDetail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="24dp"
+                android:layout_marginTop="8dp"
+                android:gravity="center"
+                android:text="Invitado registrado correctamente"
+                android:textColor="#756B82"
+                android:textSize="15sp"
+                android:fontFamily="@font/inter_medium" />
 
             <TextView
                 android:id="@+id/tvFeedbackSeatInfo"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="18dp"
+                android:background="@drawable/bg_feedback_seat_chip"
                 android:gravity="center"
-                android:textColor="@color/white"
+                android:minHeight="36dp"
+                android:paddingHorizontal="18dp"
+                android:paddingVertical="8dp"
+                android:textColor="#2B2738"
                 android:textSize="16sp"
-                android:fontFamily="@font/inter_medium"
+                android:fontFamily="@font/inter_bold"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tvFeedbackAutoDismiss"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="Se cerrará automáticamente"
+                android:textColor="#8A7E98"
+                android:textSize="12sp"
+                android:fontFamily="@font/inter"
                 android:visibility="gone" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCerrarFeedback"
                 android:layout_width="match_parent"
                 android:layout_height="54dp"
+                android:layout_marginHorizontal="24dp"
                 android:layout_marginTop="24dp"
+                android:layout_marginBottom="24dp"
                 android:text="Cerrar"
-                android:textColor="@color/text_primary"
-                app:backgroundTint="@color/white"
+                android:textColor="@color/white"
+                app:backgroundTint="@color/boton"
                 android:fontFamily="@font/inter_bold"
                 app:cornerRadius="12dp"
                 android:textAllCaps="false"

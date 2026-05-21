@@ -23,11 +23,9 @@ import android.os.Looper;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.view.View;
-import android.widget.Button;
 import android.widget.RelativeLayout;
-import android.widget.LinearLayout;
+import android.graphics.drawable.GradientDrawable;
 import com.google.android.material.button.MaterialButton;
-import android.content.res.ColorStateList;
 import android.graphics.Color;
 
 import com.google.common.util.concurrent.ListenableFuture;
@@ -37,9 +35,7 @@ import com.google.mlkit.vision.barcode.common.Barcode;
 import com.google.mlkit.vision.common.InputImage;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.List;
@@ -55,9 +51,9 @@ public class QrScannerActivity extends AppCompatActivity {
     // UI Elements
     private TextView tvAforoQr;
     private RelativeLayout overlayFeedback;
-    private LinearLayout cardFeedback;
     private ImageView ivFeedbackIcon, ivBack;
-    private TextView tvFeedbackMessage, tvFeedbackSeatInfo;
+    private TextView tvFeedbackTitle, tvFeedbackDetail, tvFeedbackSeatInfo, tvFeedbackAutoDismiss;
+    private View viewFeedbackAccent;
     private MaterialButton btnCerrarFeedback;
     
     private boolean isProcessing = false;
@@ -65,6 +61,7 @@ public class QrScannerActivity extends AppCompatActivity {
     private FirebaseAuth mAuth;
     private String eventId, userEmail;
     private final long SCAN_DELAY_MS = 2500;
+    private final Handler feedbackHandler = new Handler(Looper.getMainLooper());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,16 +83,17 @@ public class QrScannerActivity extends AppCompatActivity {
         previewView = findViewById(R.id.previewView);
         tvAforoQr = findViewById(R.id.tvAforoQr);
         overlayFeedback = findViewById(R.id.overlayFeedback);
-        cardFeedback = findViewById(R.id.cardFeedback);
+        viewFeedbackAccent = findViewById(R.id.viewFeedbackAccent);
         ivFeedbackIcon = findViewById(R.id.ivFeedbackIcon);
-        tvFeedbackMessage = findViewById(R.id.tvFeedbackMessage);
+        tvFeedbackTitle = findViewById(R.id.tvFeedbackTitle);
+        tvFeedbackDetail = findViewById(R.id.tvFeedbackDetail);
         tvFeedbackSeatInfo = findViewById(R.id.tvFeedbackSeatInfo);
+        tvFeedbackAutoDismiss = findViewById(R.id.tvFeedbackAutoDismiss);
         btnCerrarFeedback = findViewById(R.id.btnCerrarFeedback);
         ivBack = findViewById(R.id.ivBackScanner);
 
         btnCerrarFeedback.setOnClickListener(v -> {
-            overlayFeedback.setVisibility(View.GONE);
-            isProcessing = false;
+            hideFeedback();
         });
         
         ivBack.setOnClickListener(v -> finish());
@@ -116,8 +114,12 @@ public class QrScannerActivity extends AppCompatActivity {
 
     private void showFeedback(boolean isSuccess, String message, String seatInfo) {
         runOnUiThread(() -> {
+            feedbackHandler.removeCallbacksAndMessages(null);
             overlayFeedback.setVisibility(View.VISIBLE);
-            tvFeedbackMessage.setText(message);
+            String[] feedbackText = splitFeedbackMessage(message);
+            tvFeedbackTitle.setText(feedbackText[0]);
+            tvFeedbackDetail.setText(feedbackText[1]);
+            tvFeedbackDetail.setVisibility(feedbackText[1].isEmpty() ? View.GONE : View.VISIBLE);
             
             if (seatInfo != null && !seatInfo.isEmpty()) {
                 tvFeedbackSeatInfo.setText(seatInfo);
@@ -126,18 +128,78 @@ public class QrScannerActivity extends AppCompatActivity {
                 tvFeedbackSeatInfo.setVisibility(View.GONE);
             }
             
-            if (isSuccess) {
-                // Soft elegant green
-                cardFeedback.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#43A047"))); 
-                ivFeedbackIcon.setImageResource(android.R.drawable.checkbox_on_background);
-            } else {
-                // Soft elegant coral/red
-                cardFeedback.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#E57373")));
-                ivFeedbackIcon.setImageResource(android.R.drawable.ic_delete);
+            int accentColor = Color.parseColor(isSuccess ? "#2E7D32" : "#C62828");
+            viewFeedbackAccent.setBackground(createFeedbackAccentDrawable(accentColor));
+            ivFeedbackIcon.setImageResource(isSuccess
+                    ? android.R.drawable.checkbox_on_background
+                    : android.R.drawable.ic_delete);
+            ivFeedbackIcon.setColorFilter(accentColor);
+
+            boolean autoMode = getSharedPreferences("QrSettings", MODE_PRIVATE)
+                    .getBoolean("auto_mode", true);
+            btnCerrarFeedback.setVisibility(autoMode ? View.GONE : View.VISIBLE);
+            tvFeedbackAutoDismiss.setVisibility(autoMode ? View.VISIBLE : View.GONE);
+
+            if (autoMode) {
+                feedbackHandler.postDelayed(this::hideFeedback, SCAN_DELAY_MS);
             }
-            
-            // Auto-hide removed as per request. Card stays until "Cerrar" is clicked.
         });
+    }
+
+    private void hideFeedback() {
+        feedbackHandler.removeCallbacksAndMessages(null);
+        overlayFeedback.setVisibility(View.GONE);
+        isProcessing = false;
+    }
+
+    private String[] splitFeedbackMessage(String message) {
+        if (message == null) {
+            return new String[]{"", ""};
+        }
+
+        String[] parts = message.split("\\n", 2);
+        String title = formatFeedbackTitle(parts[0]);
+        String detail = parts.length > 1 ? parts[1] : "";
+        return new String[]{title, detail};
+    }
+
+    private String formatFeedbackTitle(String title) {
+        if ("ACCESO PERMITIDO".equals(title)) {
+            return "Acceso permitido";
+        }
+        if ("YA INGRESADO".equals(title)) {
+            return "Ya ingresado";
+        }
+        if ("INVITACIÓN NO VÁLIDA".equals(title)) {
+            return "Invitación no válida";
+        }
+        if ("ERROR DE SESIÓN".equals(title)) {
+            return "Error de sesión";
+        }
+        if ("ERROR DE RED".equals(title)) {
+            return "Error de red";
+        }
+        if ("ERROR AL GUARDAR".equals(title)) {
+            return "Error al guardar";
+        }
+        return title;
+    }
+
+    private GradientDrawable createFeedbackAccentDrawable(int color) {
+        float radius = dpToPx(24);
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(color);
+        drawable.setCornerRadii(new float[]{
+                radius, radius,
+                radius, radius,
+                0f, 0f,
+                0f, 0f
+        });
+        return drawable;
+    }
+
+    private float dpToPx(float dp) {
+        return dp * getResources().getDisplayMetrics().density;
     }
 
     // Overload for backward compatibility if needed, though we updated all calls
@@ -216,10 +278,18 @@ public class QrScannerActivity extends AppCompatActivity {
                     boolean found = false;
                     for (DocumentSnapshot doc : queryDocumentSnapshots) {
                         List<Map<String, Object>> personas = (List<Map<String, Object>>) doc.get("personas");
+                        if (code.equals(doc.getId()) || code.equals(doc.getString("id"))) {
+                            if (personas != null && !personas.isEmpty()) {
+                                found = true;
+                                processPersonaMatch(doc, personas, findFirstPendingPersonaIndex(personas));
+                                return;
+                            }
+                        }
+
                         if (personas != null) {
                             for (int i = 0; i < personas.size(); i++) {
                                 Map<String, Object> persona = personas.get(i);
-                                String personaQr = (String) persona.get("qrCode");
+                                String personaQr = getStringFromMap(persona, "qrCode", "id", "QR", "qr");
 
                                 if (code.equals(personaQr)) {
                                     found = true;
@@ -236,23 +306,63 @@ public class QrScannerActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> showFeedback(false, "ERROR DE RED"));
     }
 
+    private int findFirstPendingPersonaIndex(List<Map<String, Object>> personas) {
+        for (int i = 0; i < personas.size(); i++) {
+            Object escaneado = personas.get(i).get("escaneado");
+            if (!(escaneado instanceof Boolean) || !((Boolean) escaneado)) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    private String getStringFromMap(Map<String, Object> map, String... keys) {
+        for (String key : keys) {
+            Object value = map.get(key);
+            if (value != null) {
+                return String.valueOf(value);
+            }
+        }
+        return null;
+    }
+
+    private String getTitularName(DocumentSnapshot doc) {
+        String nombreMayusculas = doc.getString("NOMBRE");
+        if (isValidGuestOwnerName(nombreMayusculas)) {
+            return nombreMayusculas;
+        }
+
+        String nombreMinusculas = doc.getString("nombre");
+        if (isValidGuestOwnerName(nombreMinusculas)) {
+            return nombreMinusculas;
+        }
+
+        String nombreCapitalizado = doc.getString("Nombre");
+        if (isValidGuestOwnerName(nombreCapitalizado)) {
+            return nombreCapitalizado;
+        }
+
+        return "Desconocido";
+    }
+
+    private boolean isValidGuestOwnerName(String name) {
+        return name != null
+                && !name.trim().isEmpty()
+                && !"Invitado".equalsIgnoreCase(name.trim());
+    }
+
     private void processPersonaMatch(DocumentSnapshot doc, List<Map<String, Object>> personas, int index) {
         Map<String, Object> persona = personas.get(index);
         Boolean yaEscaneado = (Boolean) persona.get("escaneado");
-        String titularName = doc.getString("nombre");
-        final String guestDisplay = "Invitado " + (index + 1) + " de " + (titularName != null ? titularName : "Desconocido");
+        String titularName = getTitularName(doc);
+        final String guestDisplay = "Invitado " + (index + 1) + " de " + titularName;
 
-        // Retrieve seat info checking both lower and uppercase for flexibility
-        Object filaObj = persona.containsKey("fila") ? persona.get("fila") : persona.get("Fila");
-        Object colObj = persona.containsKey("columna") ? persona.get("columna") : persona.get("Columna");
-        
-        final String seatInfo;
-        if (filaObj != null && colObj != null) {
-            seatInfo = "Asiento: F-" + filaObj + " C-" + colObj;
-        } else {
-            // Si por algún motivo no estuvieran, mostramos que no hay asiento asignado
-            seatInfo = "Asiento: No asignado";
+        String asiento = doc.getString("asiento");
+        if (asiento == null || asiento.trim().isEmpty()) {
+            asiento = doc.getString("Asiento");
         }
+        final String seatInfo = "Asiento: " +
+                (asiento != null && !asiento.trim().isEmpty() ? asiento : "No asignado");
 
         if (yaEscaneado != null && yaEscaneado) {
             showFeedback(false, "YA INGRESADO\n" + guestDisplay, seatInfo);
