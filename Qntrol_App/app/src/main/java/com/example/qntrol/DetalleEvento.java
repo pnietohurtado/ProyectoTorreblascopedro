@@ -95,7 +95,7 @@ public class DetalleEvento extends AppCompatActivity {
         botonQR.setOnClickListener(view -> {
             Log.d("DetalleEvento", "QR Button clicked, eventId: " + eventId);
             if (eventId == null) {
-                Toast.makeText(this, "Error: ID de evento no encontrado", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.event_id_missing_error, Toast.LENGTH_SHORT).show();
                 return;
             }
             Intent intent = new Intent(DetalleEvento.this, QrScannerActivity.class);
@@ -182,7 +182,7 @@ public class DetalleEvento extends AppCompatActivity {
         layoutEstadoVacio.setVisibility(View.GONE);
 
         String nombreTitular = doc.getString("nombre");
-        if (nombreTitular == null) nombreTitular = "Alumno";
+        if (nombreTitular == null) nombreTitular = getString(R.string.student_fallback_name);
         tvMainName.setText(nombreTitular);
 
         List<Map<String, Object>> personas = (List<Map<String, Object>>) doc.get("personas");
@@ -214,9 +214,9 @@ public class DetalleEvento extends AppCompatActivity {
         Boolean esc = (Boolean) p.get("escaneado");
         Timestamp time = (Timestamp) p.get("fechaEscaneo");
 
-        tvName.setText(name != null ? name : "Invitado");
+        tvName.setText(name != null ? name : getString(R.string.generic_guest_name));
         cb.setChecked(esc != null && esc);
-        tvTime.setText(time != null ? dateFormat.format(time.toDate()) : "No registrado");
+        tvTime.setText(time != null ? dateFormat.format(time.toDate()) : getString(R.string.guest_not_registered));
 
         cb.setOnCheckedChangeListener((buttonView, isChecked) -> updateAsistenciaManual(docId, originalIndex, isChecked));
         
@@ -262,7 +262,7 @@ public class DetalleEvento extends AppCompatActivity {
                 }
             }
         }
-        tvAforo.setText("Aforo: " + presentes + "/" + total);
+        tvAforo.setText(getString(R.string.capacity_format, presentes, total));
     }
 
     @Override

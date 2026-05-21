@@ -91,11 +91,11 @@ public class Eventos extends AppCompatActivity {
                         adapter.notifyDataSetChanged();
                         
                         if (eventoList.isEmpty()) {
-                            Toast.makeText(this, "No hay eventos disponibles", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(this, R.string.no_events_available, Toast.LENGTH_SHORT).show();
                         }
                     } else {
                         Log.e("Firebase", "Error getting events", task.getException());
-                        Toast.makeText(this, "Error al cargar eventos", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, R.string.events_load_error, Toast.LENGTH_SHORT).show();
                     }
                 });
     }

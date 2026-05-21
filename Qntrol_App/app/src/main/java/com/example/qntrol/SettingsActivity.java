@@ -88,7 +88,7 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private void updateScanModeTitle(TextView tv, boolean isAutoMode) {
-        tv.setText(isAutoMode ? "Modo Automático" : "Modo Manual");
+        tv.setText(isAutoMode ? R.string.scan_mode_auto : R.string.scan_mode_manual);
     }
 
     private void showLanguageDialog() {

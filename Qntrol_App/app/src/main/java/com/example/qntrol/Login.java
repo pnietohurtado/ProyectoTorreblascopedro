@@ -101,7 +101,7 @@ public class Login extends AppCompatActivity {
                 firebaseAuthWithGoogle(account.getIdToken());
             } catch (ApiException e) {
                 Log.w("Login", "Google sign in failed", e);
-                Toast.makeText(this, "Error al conectar con Google", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.google_connection_error, Toast.LENGTH_SHORT).show();
             }
         }
     }
@@ -114,7 +114,7 @@ public class Login extends AppCompatActivity {
                         startActivity(new Intent(Login.this, Eventos.class));
                         finish();
                     } else {
-                        Toast.makeText(Login.this, "Error de autenticación con Firebase", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(Login.this, R.string.firebase_auth_error, Toast.LENGTH_SHORT).show();
                     }
                 });
     }
@@ -153,7 +153,7 @@ public class Login extends AppCompatActivity {
                         mAuth.sendPasswordResetEmail(email)
                                 .addOnCompleteListener(task -> {
                                     if (task.isSuccessful()) {
-                                        Toast.makeText(Login.this, getString(R.string.reset_pass_success) + " " + email, Toast.LENGTH_LONG).show();
+                                        Toast.makeText(Login.this, getString(R.string.reset_pass_success, email), Toast.LENGTH_LONG).show();
                                     } else {
                                         Toast.makeText(Login.this, getString(R.string.reset_pass_error), Toast.LENGTH_SHORT).show();
                                     }
@@ -171,12 +171,12 @@ public class Login extends AppCompatActivity {
         Log.d("Login", "Intentando login con: " + email);
 
         if (TextUtils.isEmpty(email)) {
-            etEmail.setError("Ingresa el email");
+            etEmail.setError(getString(R.string.email_required_error));
             return;
         }
 
         if (TextUtils.isEmpty(password)) {
-            etPassword.setError("Ingresa la contraseña");
+            etPassword.setError(getString(R.string.password_required_error));
             return;
         }
 
@@ -188,7 +188,7 @@ public class Login extends AppCompatActivity {
                     } else {
                         // Mensaje de error genérico por seguridad y UX
                         Toast.makeText(Login.this, 
-                                "Usuario o contraseña incorrecta", 
+                                R.string.invalid_credentials,
                                 Toast.LENGTH_LONG).show();
                     }
                 });

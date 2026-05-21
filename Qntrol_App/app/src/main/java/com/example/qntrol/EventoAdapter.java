@@ -53,8 +53,13 @@ public class EventoAdapter extends RecyclerView.Adapter<EventoAdapter.EventoView
 
         public void bind(final Evento evento, final OnItemClickListener listener) {
             tvEventName.setText(evento.getNombreEvento());
-            tvEventTime.setText((evento.getFecha() != null ? evento.getFecha() : "--") + 
-                                " | " + (evento.getHora() != null ? evento.getHora() : "--"));
+            String fecha = evento.getFecha() != null
+                    ? evento.getFecha()
+                    : itemView.getContext().getString(R.string.empty_value_placeholder);
+            String hora = evento.getHora() != null
+                    ? evento.getHora()
+                    : itemView.getContext().getString(R.string.empty_value_placeholder);
+            tvEventTime.setText(itemView.getContext().getString(R.string.event_datetime_format, fecha, hora));
             
             itemView.setOnClickListener(v -> listener.onItemClick(evento));
         }

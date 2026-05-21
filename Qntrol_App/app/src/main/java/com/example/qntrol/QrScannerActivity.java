@@ -158,31 +158,9 @@ public class QrScannerActivity extends AppCompatActivity {
         }
 
         String[] parts = message.split("\\n", 2);
-        String title = formatFeedbackTitle(parts[0]);
+        String title = parts[0];
         String detail = parts.length > 1 ? parts[1] : "";
         return new String[]{title, detail};
-    }
-
-    private String formatFeedbackTitle(String title) {
-        if ("ACCESO PERMITIDO".equals(title)) {
-            return "Acceso permitido";
-        }
-        if ("YA INGRESADO".equals(title)) {
-            return "Ya ingresado";
-        }
-        if ("INVITACIÓN NO VÁLIDA".equals(title)) {
-            return "Invitación no válida";
-        }
-        if ("ERROR DE SESIÓN".equals(title)) {
-            return "Error de sesión";
-        }
-        if ("ERROR DE RED".equals(title)) {
-            return "Error de red";
-        }
-        if ("ERROR AL GUARDAR".equals(title)) {
-            return "Error al guardar";
-        }
-        return title;
     }
 
     private GradientDrawable createFeedbackAccentDrawable(int color) {
@@ -263,7 +241,7 @@ public class QrScannerActivity extends AppCompatActivity {
 
     private void validateQr(String code) {
         if (userEmail == null || eventId == null) {
-            showFeedback(false, "ERROR DE SESIÓN");
+            showFeedback(false, getString(R.string.feedback_session_error));
             return;
         }
 
@@ -300,10 +278,10 @@ public class QrScannerActivity extends AppCompatActivity {
                         }
                     }
                     if (!found) {
-                        showFeedback(false, "INVITACIÓN NO VÁLIDA");
+                        showFeedback(false, getString(R.string.feedback_invalid_invitation));
                     }
                 })
-                .addOnFailureListener(e -> showFeedback(false, "ERROR DE RED"));
+                .addOnFailureListener(e -> showFeedback(false, getString(R.string.feedback_network_error)));
     }
 
     private int findFirstPendingPersonaIndex(List<Map<String, Object>> personas) {
@@ -342,30 +320,34 @@ public class QrScannerActivity extends AppCompatActivity {
             return nombreCapitalizado;
         }
 
-        return "Desconocido";
+        return getString(R.string.feedback_unknown_guest);
     }
 
     private boolean isValidGuestOwnerName(String name) {
         return name != null
                 && !name.trim().isEmpty()
-                && !"Invitado".equalsIgnoreCase(name.trim());
+                && !getString(R.string.generic_guest_name).equalsIgnoreCase(name.trim());
     }
 
     private void processPersonaMatch(DocumentSnapshot doc, List<Map<String, Object>> personas, int index) {
         Map<String, Object> persona = personas.get(index);
         Boolean yaEscaneado = (Boolean) persona.get("escaneado");
         String titularName = getTitularName(doc);
-        final String guestDisplay = "Invitado " + (index + 1) + " de " + titularName;
+        final String guestDisplay = getString(R.string.feedback_guest_of, index + 1, titularName);
 
         String asiento = doc.getString("asiento");
         if (asiento == null || asiento.trim().isEmpty()) {
             asiento = doc.getString("Asiento");
         }
-        final String seatInfo = "Asiento: " +
-                (asiento != null && !asiento.trim().isEmpty() ? asiento : "No asignado");
+        final String seatInfo = getString(
+                R.string.feedback_seat_format,
+                asiento != null && !asiento.trim().isEmpty()
+                        ? asiento
+                        : getString(R.string.feedback_no_seat)
+        );
 
         if (yaEscaneado != null && yaEscaneado) {
-            showFeedback(false, "YA INGRESADO\n" + guestDisplay, seatInfo);
+            showFeedback(false, getString(R.string.feedback_already_entered) + "\n" + guestDisplay, seatInfo);
             return;
         }
 
@@ -376,14 +358,14 @@ public class QrScannerActivity extends AppCompatActivity {
         // Update in Firestore
         doc.getReference().update("personas", personas)
                 .addOnSuccessListener(aVoid -> {
-                    showFeedback(true, "ACCESO PERMITIDO\n" + guestDisplay, seatInfo);
+                    showFeedback(true, getString(R.string.feedback_access_allowed) + "\n" + guestDisplay, seatInfo);
                     updateCapacity();
                     
                     Intent resultIntent = new Intent();
                     resultIntent.putExtra("QR_VALUE", guestDisplay);
                     setResult(RESULT_OK, resultIntent);
                 })
-                .addOnFailureListener(e -> showFeedback(false, "ERROR AL GUARDAR"));
+                .addOnFailureListener(e -> showFeedback(false, getString(R.string.feedback_save_error)));
     }
 
     private void updateCapacity() {
@@ -407,7 +389,7 @@ public class QrScannerActivity extends AppCompatActivity {
                             }
                         }
                     }
-                    tvAforoQr.setText("Aforo: " + presentes + "/" + total);
+                    tvAforoQr.setText(getString(R.string.capacity_format, presentes, total));
                 });
     }
 
@@ -419,7 +401,7 @@ public class QrScannerActivity extends AppCompatActivity {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startCamera();
             } else {
-                Toast.makeText(this, "Permiso de cámara denegado", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, R.string.camera_permission_denied, Toast.LENGTH_LONG).show();
                 finish();
             }
         }
