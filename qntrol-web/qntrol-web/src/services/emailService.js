@@ -87,6 +87,31 @@ export const sendEventInvitation = async (eventData, guestData, customSubject = 
  * Envía correos masivos con Lógica de Asientos y Tracking
  */
 export const sendInvitationsToAll = async (eventData, guestList, customSubject = null, customBody = null) => {
+  try {
+    const response = await fetch('http://127.0.0.1:8000/api/send-emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        eventData,
+        guestList,
+        customSubject,
+        customBody,
+      }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return data.result || data;
+    }
+
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'Error en el agente local de correos.');
+  } catch (agentError) {
+    console.warn('El agente local de correos no está disponible; usando EmailJS.', agentError.message);
+  }
+
   const result = { success: 0, failed: 0, skipped: 0, errors: [] };
   const emailsEnviadosEnLote = new Set();
   const eventId = eventData.id || eventData.eventId;

@@ -77,6 +77,29 @@ export const sendEventInvitation = async (eventData, guestData) => {
  * Implementa asignación automática de asientos antes de enviar.
  */
 export const sendInvitationsToAll = async (eventData, guestList) => {
+  try {
+    const response = await fetch('http://127.0.0.1:8000/api/send-emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        eventData,
+        guestList,
+      }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return data.result || data;
+    }
+
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'Error en el agente local de correos.');
+  } catch (agentError) {
+    console.warn('El agente local de correos no está disponible; usando EmailJS.', agentError.message);
+  }
+
   const result = { success: 0, failed: 0, skipped: 0, errors: [] };
   
   // Set para rastrear emails ya enviados EN ESTE LOTE para evitar duplicados
