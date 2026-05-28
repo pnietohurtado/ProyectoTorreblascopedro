@@ -10,12 +10,12 @@
         android:id="@+id/ivGuestArrow"
         android:layout_width="16dp"
         android:layout_height="16dp"
-        android:layout_marginTop="4dp"
         android:contentDescription="@string/guest_arrow_content_description"
         android:src="@drawable/ic_arrow_right"
         app:tint="?android:attr/textColorSecondary"
+        app:layout_constraintBottom_toBottomOf="@+id/tvGuestName"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="@+id/tvGuestName" />
 
     <TextView
         android:id="@+id/tvGuestName"
@@ -27,7 +27,7 @@
         android:textColor="?android:attr/textColorPrimary"
         app:layout_constraintEnd_toStartOf="@+id/cbGuest"
         app:layout_constraintStart_toEndOf="@+id/ivGuestArrow"
-        app:layout_constraintTop_toTopOf="@+id/ivGuestArrow" />
+        app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
         android:id="@+id/tvGuestTime"

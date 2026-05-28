@@ -3,6 +3,7 @@ package com.example.qntrol;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
@@ -18,7 +19,6 @@ import android.view.MotionEvent;
 import android.view.inputmethod.InputMethodManager;
 import android.content.Context;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.button.MaterialButton;
@@ -29,6 +29,7 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 
+import java.text.Normalizer;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -129,7 +130,7 @@ public class DetalleEvento extends AppCompatActivity {
                         updateAforoDisplay();
                         
                         // Si hay una búsqueda activa, refresca los datos en pantalla
-                        String currentQuery = etSearch.getText().toString().trim().toLowerCase();
+                        String currentQuery = etSearch.getText().toString().trim();
                         if (!currentQuery.isEmpty()) {
                             buscarAlumnoLocal(currentQuery);
                         }
@@ -144,7 +145,7 @@ public class DetalleEvento extends AppCompatActivity {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                String query = s.toString().trim().toLowerCase();
+                String query = s.toString().trim();
                 if (query.isEmpty()) {
                     layoutEstadoAlumno.setVisibility(View.GONE);
                     layoutEstadoVacio.setVisibility(View.VISIBLE);
@@ -161,8 +162,7 @@ public class DetalleEvento extends AppCompatActivity {
     private void buscarAlumnoLocal(String query) {
         DocumentSnapshot matchedDoc = null;
         for (DocumentSnapshot doc : allGuestsList) {
-            String nombre = doc.getString("nombre");
-            if (nombre != null && nombre.toLowerCase().contains(query)) {
+            if (matchesGuestSearch(doc, query)) {
                 matchedDoc = doc;
                 break;
             }
@@ -181,7 +181,7 @@ public class DetalleEvento extends AppCompatActivity {
         layoutEstadoAlumno.setVisibility(View.VISIBLE);
         layoutEstadoVacio.setVisibility(View.GONE);
 
-        String nombreTitular = doc.getString("nombre");
+        String nombreTitular = getGuestOwnerName(doc);
         if (nombreTitular == null) nombreTitular = getString(R.string.student_fallback_name);
         tvMainName.setText(nombreTitular);
 
@@ -195,7 +195,7 @@ public class DetalleEvento extends AppCompatActivity {
             for (int i = 0; i < personas.size(); i++) {
                 Map<String, Object> p = personas.get(i);
                 String pName = (String) p.get("nombre");
-                if (pName != null && !pName.equalsIgnoreCase(nombreTitular)) {
+                if (pName != null && !normalizeSearchText(pName).equals(normalizeSearchText(nombreTitular))) {
                     // It's a companion, inflate and add view
                     inflarInvitado(p, i, doc.getId());
                 }
@@ -243,6 +243,14 @@ public class DetalleEvento extends AppCompatActivity {
 
                         documentSnapshot.getReference().update("personas", personas)
                                 .addOnSuccessListener(aVoid -> {
+                                    if (isChecked) {
+                                        AppLogHelper.logEntryAccepted(
+                                                this,
+                                                getString(R.string.generic_guest_with_number, index + 1),
+                                                getGuestOwnerName(documentSnapshot),
+                                                getString(R.string.log_source_check)
+                                        );
+                                    }
                                     // El SnapshotListener se encargará de refrescar la UI automáticamente
                                 });
                     }
@@ -263,6 +271,71 @@ public class DetalleEvento extends AppCompatActivity {
             }
         }
         tvAforo.setText(getString(R.string.capacity_format, presentes, total));
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean matchesGuestSearch(DocumentSnapshot doc, String query) {
+        String normalizedQuery = normalizeSearchText(query);
+        if (normalizedQuery.isEmpty()) return false;
+
+        String[] rootFields = {
+                "NOMBRE", "nombre", "Nombre",
+                "APELLIDOS", "apellidos", "Apellidos",
+                "APELLIDO", "apellido", "Apellido",
+                "EMAIL", "email", "Email"
+        };
+
+        for (String field : rootFields) {
+            if (containsSearchText(doc.getString(field), normalizedQuery)) {
+                return true;
+            }
+        }
+
+        List<Map<String, Object>> personas = (List<Map<String, Object>>) doc.get("personas");
+        if (personas == null) return false;
+
+        String[] personFields = {
+                "NOMBRE", "nombre", "Nombre",
+                "APELLIDOS", "apellidos", "Apellidos",
+                "APELLIDO", "apellido", "Apellido",
+                "EMAIL", "email", "Email"
+        };
+
+        for (Map<String, Object> persona : personas) {
+            for (String field : personFields) {
+                Object value = persona.get(field);
+                if (value instanceof String && containsSearchText((String) value, normalizedQuery)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private String getGuestOwnerName(DocumentSnapshot doc) {
+        String nombreMayusculas = doc.getString("NOMBRE");
+        if (!TextUtils.isEmpty(nombreMayusculas)) return nombreMayusculas;
+
+        String nombreMinusculas = doc.getString("nombre");
+        if (!TextUtils.isEmpty(nombreMinusculas)) return nombreMinusculas;
+
+        String nombreCapitalizado = doc.getString("Nombre");
+        if (!TextUtils.isEmpty(nombreCapitalizado)) return nombreCapitalizado;
+
+        return null;
+    }
+
+    private boolean containsSearchText(String value, String normalizedQuery) {
+        return !TextUtils.isEmpty(value) && normalizeSearchText(value).contains(normalizedQuery);
+    }
+
+    private String normalizeSearchText(String value) {
+        if (value == null) return "";
+
+        String normalized = Normalizer.normalize(value, Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
+        return normalized.toLowerCase(Locale.ROOT).trim();
     }
 
     @Override

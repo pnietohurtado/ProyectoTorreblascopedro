@@ -333,6 +333,7 @@ public class QrScannerActivity extends AppCompatActivity {
         Map<String, Object> persona = personas.get(index);
         Boolean yaEscaneado = (Boolean) persona.get("escaneado");
         String titularName = getTitularName(doc);
+        final String guestLabel = getString(R.string.generic_guest_with_number, index + 1);
         final String guestDisplay = getString(R.string.feedback_guest_of, index + 1, titularName);
 
         String asiento = doc.getString("asiento");
@@ -358,6 +359,7 @@ public class QrScannerActivity extends AppCompatActivity {
         // Update in Firestore
         doc.getReference().update("personas", personas)
                 .addOnSuccessListener(aVoid -> {
+                    AppLogHelper.logEntryAccepted(this, guestLabel, titularName, getString(R.string.log_source_qr));
                     showFeedback(true, getString(R.string.feedback_access_allowed) + "\n" + guestDisplay, seatInfo);
                     updateCapacity();
                     

@@ -1,13 +1,17 @@
 package com.example.qntrol;
 
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.app.Dialog;
 import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -23,9 +27,9 @@ import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GoogleAuthProvider;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import android.widget.FrameLayout;
-import android.view.ViewGroup;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 public class Login extends AppCompatActivity {
 
@@ -80,6 +84,7 @@ public class Login extends AppCompatActivity {
         // Persistencia: Si hay usuario, ir a la pantalla de eventos
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser != null) {
+            AppLogHelper.logUserEntered(this, currentUser.getEmail());
             startActivity(new Intent(this, Eventos.class));
             finish();
         }
@@ -111,6 +116,8 @@ public class Login extends AppCompatActivity {
         mAuth.signInWithCredential(credential)
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
+                        FirebaseUser user = mAuth.getCurrentUser();
+                        AppLogHelper.logUserEntered(this, user != null ? user.getEmail() : null);
                         startActivity(new Intent(Login.this, Eventos.class));
                         finish();
                     } else {
@@ -120,22 +127,19 @@ public class Login extends AppCompatActivity {
     }
 
     private void showForgotPasswordDialog() {
-        // Create an EditText with proper Material styling
-        EditText etEmailReset = new EditText(this);
-        etEmailReset.setHint("email@example.com");
-        
-        // Wrap EditText in a FrameLayout for better padding/margins inside Material dialog
-        FrameLayout container = new FrameLayout(this);
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        int margin = (int) (24 * getResources().getDisplayMetrics().density); // 24dp margin
-        params.leftMargin = margin;
-        params.rightMargin = margin;
-        params.topMargin = (int) (8 * getResources().getDisplayMetrics().density); // 8dp top
-        etEmailReset.setLayoutParams(params);
-        container.addView(etEmailReset);
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.dialog_forgot_password);
+
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+
+        TextInputLayout tilEmailReset = dialog.findViewById(R.id.tilEmailReset);
+        TextInputEditText etEmailReset = dialog.findViewById(R.id.etEmailReset);
+        MaterialButton btnCancelReset = dialog.findViewById(R.id.btnCancelReset);
+        MaterialButton btnSendReset = dialog.findViewById(R.id.btnSendReset);
 
         // Pre-fill if user already typed something
         String currentEmail = etEmail.getText().toString().trim();
@@ -143,25 +147,31 @@ public class Login extends AppCompatActivity {
             etEmailReset.setText(currentEmail);
         }
 
-        new MaterialAlertDialogBuilder(this)
-                .setTitle(R.string.reset_pass_title)
-                .setMessage(R.string.reset_pass_msg)
-                .setView(container)
-                .setPositiveButton(R.string.btn_send, (dialog, which) -> {
-                    String email = etEmailReset.getText().toString().trim();
-                    if (!TextUtils.isEmpty(email)) {
-                        mAuth.sendPasswordResetEmail(email)
-                                .addOnCompleteListener(task -> {
-                                    if (task.isSuccessful()) {
-                                        Toast.makeText(Login.this, getString(R.string.reset_pass_success, email), Toast.LENGTH_LONG).show();
-                                    } else {
-                                        Toast.makeText(Login.this, getString(R.string.reset_pass_error), Toast.LENGTH_SHORT).show();
-                                    }
-                                });
-                    }
-                })
-                .setNegativeButton(R.string.btn_cancel, null)
-                .show();
+        btnCancelReset.setOnClickListener(v -> dialog.dismiss());
+        btnSendReset.setOnClickListener(v -> {
+            String email = etEmailReset.getText() != null ? etEmailReset.getText().toString().trim() : "";
+            if (TextUtils.isEmpty(email)) {
+                tilEmailReset.setError(getString(R.string.email_required_error));
+                return;
+            }
+
+            tilEmailReset.setError(null);
+            mAuth.sendPasswordResetEmail(email)
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            Toast.makeText(Login.this, getString(R.string.reset_pass_success, email), Toast.LENGTH_LONG).show();
+                            dialog.dismiss();
+                        } else {
+                            Toast.makeText(Login.this, getString(R.string.reset_pass_error), Toast.LENGTH_SHORT).show();
+                        }
+                    });
+        });
+
+        dialog.show();
+        Window shownWindow = dialog.getWindow();
+        if (shownWindow != null) {
+            shownWindow.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
     }
 
     private void loginUsuario() {
@@ -183,6 +193,8 @@ public class Login extends AppCompatActivity {
         mAuth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
+                        FirebaseUser user = mAuth.getCurrentUser();
+                        AppLogHelper.logUserEntered(this, user != null ? user.getEmail() : email);
                         startActivity(new Intent(Login.this, Eventos.class));
                         finish();
                     } else {

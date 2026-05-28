@@ -46,6 +46,12 @@
         <activity
             android:name=".SettingsActivity"
             android:exported="false" />
+        <activity
+            android:name=".LogsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".FaqActivity"
+            android:exported="false" />
 
         <meta-data
             android:name="preloaded_fonts"

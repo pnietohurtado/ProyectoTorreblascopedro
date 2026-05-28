@@ -1,14 +1,18 @@
 package com.example.qntrol;
 
 import android.content.Intent;
+import android.app.Dialog;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.widget.TextView;
-import androidx.appcompat.app.AlertDialog;
+import android.view.Window;
 import androidx.appcompat.app.AppCompatActivity;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import android.view.View;
+import android.view.ViewGroup;
 
 public class SettingsActivity extends AppCompatActivity {
 
@@ -35,7 +39,6 @@ public class SettingsActivity extends AppCompatActivity {
         MaterialSwitch switchTheme = findViewById(R.id.switchTheme);
         MaterialSwitch switchScanMode = findViewById(R.id.switchScanMode);
         TextView tvScanModeTitle = findViewById(R.id.tvScanModeTitle);
-        TextView tvCurrentLang = findViewById(R.id.tvCurrentLang);
         
         // Setup Theme Switch
         int currentTheme = ThemeHelper.getSelectedTheme(this);
@@ -59,11 +62,11 @@ public class SettingsActivity extends AppCompatActivity {
         findViewById(R.id.cardScanMode).setOnClickListener(v ->
                 switchScanMode.setChecked(!switchScanMode.isChecked()));
 
-        // Setup Language Card
-        String currentLang = LanguageHelper.getSelectedLanguage(this);
-        tvCurrentLang.setText(currentLang.equals(LanguageHelper.LANG_ES) ? getString(R.string.lang_spanish) : getString(R.string.lang_english));
-        
-        findViewById(R.id.cardLanguage).setOnClickListener(v -> showLanguageDialog());
+        findViewById(R.id.cardLogs).setOnClickListener(v ->
+                startActivity(new Intent(this, LogsActivity.class)));
+
+        findViewById(R.id.cardFaq).setOnClickListener(v ->
+                startActivity(new Intent(this, FaqActivity.class)));
 
         // Setup Privacy Card
         findViewById(R.id.cardPrivacy).setOnClickListener(v -> showPrivacyDialog());
@@ -73,44 +76,72 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private void showLogoutConfirmation() {
-        new MaterialAlertDialogBuilder(this)
-                .setTitle(R.string.logout_confirm_title)
-                .setMessage(R.string.logout_confirm_msg)
-                .setPositiveButton(R.string.btn_logout_confirm, (dialog, which) -> {
+        showSettingsDialog(
+                getString(R.string.logout_confirm_title),
+                getString(R.string.logout_confirm_msg),
+                getString(R.string.btn_cancel),
+                getString(R.string.btn_logout_confirm),
+                () -> {
                     mAuth.signOut();
                     Intent intent = new Intent(this, Login.class);
                     intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                     startActivity(intent);
                     finish();
-                })
-                .setNegativeButton(R.string.btn_cancel, null)
-                .show();
+                }
+        );
     }
 
     private void updateScanModeTitle(TextView tv, boolean isAutoMode) {
         tv.setText(isAutoMode ? R.string.scan_mode_auto : R.string.scan_mode_manual);
     }
 
-    private void showLanguageDialog() {
-        String[] languages = {getString(R.string.lang_spanish), getString(R.string.lang_english)};
-        int checkedItem = LanguageHelper.getSelectedLanguage(this).equals(LanguageHelper.LANG_ES) ? 0 : 1;
-
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.setting_language)
-                .setSingleChoiceItems(languages, checkedItem, (dialog, which) -> {
-                    String selectedLang = (which == 0) ? LanguageHelper.LANG_ES : LanguageHelper.LANG_EN;
-                    LanguageHelper.setLanguage(this, selectedLang);
-                    dialog.dismiss();
-                    recreate();
-                })
-                .show();
+    private void showPrivacyDialog() {
+        showSettingsDialog(
+                getString(R.string.privacy_policy_title),
+                getString(R.string.privacy_policy_content),
+                null,
+                getString(R.string.btn_close),
+                null
+        );
     }
 
-    private void showPrivacyDialog() {
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.privacy_policy_title)
-                .setMessage(R.string.privacy_policy_content)
-                .setPositiveButton(R.string.btn_close, (dialog, which) -> dialog.dismiss())
-                .show();
+    private void showSettingsDialog(String title, String message, String cancelText, String confirmText, Runnable onConfirm) {
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.dialog_settings_message);
+
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+
+        TextView tvTitle = dialog.findViewById(R.id.tvDialogTitle);
+        TextView tvMessage = dialog.findViewById(R.id.tvDialogMessage);
+        MaterialButton btnCancel = dialog.findViewById(R.id.btnDialogCancel);
+        MaterialButton btnConfirm = dialog.findViewById(R.id.btnDialogConfirm);
+
+        tvTitle.setText(title);
+        tvMessage.setText(message);
+        btnConfirm.setText(confirmText);
+
+        if (cancelText == null) {
+            btnCancel.setVisibility(View.GONE);
+        } else {
+            btnCancel.setText(cancelText);
+            btnCancel.setOnClickListener(v -> dialog.dismiss());
+        }
+
+        btnConfirm.setOnClickListener(v -> {
+            dialog.dismiss();
+            if (onConfirm != null) {
+                onConfirm.run();
+            }
+        });
+
+        dialog.show();
+        Window shownWindow = dialog.getWindow();
+        if (shownWindow != null) {
+            shownWindow.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
     }
 }
