@@ -12,22 +12,22 @@ import { getEventosUsuario } from './firebase/firebase';
 import './index.css';
 import { useNavigate } from 'react-router-dom';
 
-
-
 const PrivateRoute = ({ children }) => {
   const { currentUser, loading } = useAuth();
-
-  if (loading) {
-    return <div>Cargando...</div>;
-  }
-
+  if (loading) return <div className="min-h-screen bg-[#0D0E22] flex items-center justify-center text-white font-black tracking-widest">CARGANDO...</div>;
   return currentUser ? children : <Navigate to="/login" />;
 };
 
-
 const EventListWrapper = ({ events, onEditEvent, onDeleteEvent }) => {
   const navigate = useNavigate();
-  return <EventList events={events} onEditEvent={onEditEvent} onDeleteEvent={onDeleteEvent} onCreateClick={() => navigate('/create')} />;
+  return (
+    <EventList 
+      events={events} 
+      onEditEvent={onEditEvent} 
+      onDeleteEvent={onDeleteEvent} 
+      onCreateClick={() => navigate('/create')} 
+    />
+  );
 };
 
 const EventFormWrapper = ({ onAddEvent }) => {
@@ -39,53 +39,46 @@ const EventFormWrapper = ({ onAddEvent }) => {
   return <EventForm onSave={handleSave} onCancel={() => navigate('/')} />;
 };
 
-
-
 function AppContent() {
   const { currentUser } = useAuth();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Cargar eventos desde Firebase cuando hay un usuario logueado
+  // Cargar eventos desde Firebase
   useEffect(() => {
     async function loadEvents() {
-      if (currentUser) {
+      if (currentUser?.email) {
         setLoading(true);
-        console.log("Loading events for user:", currentUser.email);
-        const userEvents = await getEventosUsuario(currentUser.email);
-        console.log("Events loaded in App.js:", userEvents);
-        if (userEvents) {
-          setEvents(userEvents);
+        try {
+          const userEvents = await getEventosUsuario(currentUser.email);
+          if (userEvents) setEvents(userEvents);
+        } catch (error) {
+          console.error("Error cargando eventos:", error);
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       } else {
         setEvents([]);
       }
     }
-
     loadEvents();
   }, [currentUser]);
 
-  const handleAddEvent = async (eventData) => {
-    // Si el evento ya viene con ID (creado en Firebase), lo usamos
-    // Si no, recargamos la lista para asegurar consistencia
-    if (eventData.eventId) {
-      const newEvent = {
-        id: eventData.eventId,
-        ...eventData
-      };
-      setEvents(prev => [...prev, newEvent]);
-    } else {
-      // Fallback por si acaso, recargar todo
-      if (currentUser && currentUser.email) {
-        const userEvents = await getEventosUsuario(currentUser.email);
-        if (userEvents) setEvents(userEvents);
-      }
-    }
+  // Manejar nuevo evento (Creación)
+  const handleAddEvent = (eventData) => {
+    // Normalizamos el ID (Firebase suele devolverlo como id o eventoId)
+    const newEvent = {
+      ...eventData,
+      id: eventData.id || eventData.eventoId,
+      title: eventData.title || eventData.nombreEvento,
+      date: eventData.date || eventData.fecha
+    };
+    
+    setEvents(prev => [newEvent, ...prev]);
   };
 
-  const handleUpdateEvent = async (updatedEvent) => {
-    // Actualizar el estado local para reflejar los cambios inmediatamente
+  // Manejar actualización
+  const handleUpdateEvent = (updatedEvent) => {
     setEvents(prevEvents =>
       prevEvents.map(event =>
         event.id === updatedEvent.id ? { ...event, ...updatedEvent } : event
@@ -93,8 +86,8 @@ function AppContent() {
     );
   };
 
+  // Manejar eliminación
   const handleDeleteEvent = (eventId) => {
-    // Actualizar el estado local eliminando el evento
     setEvents(prevEvents => prevEvents.filter(event => event.id !== eventId));
   };
 
@@ -104,16 +97,20 @@ function AppContent() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-
-        {/* Rutas protegidas */}
+        {/* Ruta Principal: Lista de Eventos */}
         <Route path="/" element={
           <PrivateRoute>
             <Layout>
-              <EventListWrapper events={events} onEditEvent={handleUpdateEvent} onDeleteEvent={handleDeleteEvent} />
+              <EventListWrapper 
+                events={events} 
+                onEditEvent={handleUpdateEvent} 
+                onDeleteEvent={handleDeleteEvent} 
+              />
             </Layout>
           </PrivateRoute>
         } />
 
+        {/* Ruta: Creación de Eventos */}
         <Route path="/create" element={
           <PrivateRoute>
             <Layout>
@@ -122,13 +119,11 @@ function AppContent() {
           </PrivateRoute>
         } />
 
-        {/* Redirección por defecto */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );
 }
-
 
 function App() {
   return (
@@ -137,7 +132,5 @@ function App() {
     </AuthProvider>
   );
 }
-
-
 
 export default App;
