@@ -117,7 +117,15 @@ export const agregarInvitado = async (eventoId, invitadoData) => {
   const userEmail = getUserEmail();
   if (!userEmail) throw new Error("Usuario no autenticado");
 
-  const { nombre, email = "", numInvitados = 1, personas = [] } = invitadoData;
+  const nombre = invitadoData.nombre || invitadoData.Nombre || invitadoData.name || invitadoData.guest_name || "";
+  const email = invitadoData.email || invitadoData.Email || invitadoData.correo || invitadoData.mail || "";
+  const numInvitados = invitadoData.numInvitados || invitadoData.NumInvitados || invitadoData.invitados || invitadoData.seats || 1;
+  const personas = invitadoData.personas || [];
+
+  if (!nombre.trim()) {
+    throw new Error("El nombre del invitado es obligatorio");
+  }
+
   const numPersonas = parseInt(numInvitados) || 1;
   const invitadoId = `${nombre.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}`;
 
@@ -211,7 +219,7 @@ export const cargarInvitadosCSV = async (eventoId, datosCSV) => {
 
   let exitosos = 0; let duplicados = 0;
   for (const dato of datosCSV) {
-    const emailInvitado = (dato.Email || dato.email || "").toLowerCase().trim();
+    const emailInvitado = (dato.Email || dato.email || dato.Correo || dato.correo || dato.mail || "").toLowerCase().trim();
     if (emailInvitado && emailsExistentes.has(emailInvitado)) {
       duplicados++;
       continue;

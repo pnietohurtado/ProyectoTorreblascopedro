@@ -33,6 +33,11 @@ try:
 except ValueError:
     API_PORT = 8000
 
+try:
+    EMAIL_DELAY_SECONDS = float(os.getenv("EMAIL_DELAY_SECONDS", 1.2))
+except ValueError:
+    EMAIL_DELAY_SECONDS = 1.2
+
 # Validación básica
 def validate_config():
     errors = []

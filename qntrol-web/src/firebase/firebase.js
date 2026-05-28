@@ -172,14 +172,12 @@ export const agregarInvitado = async (eventoId, invitadoData) => {
 
   const uid = user?.uid;
 
-  const {
-    nombre,
-    email = "",
-    telefono = "",
-    numInvitados = 1,
-    notas = "",
-    personas = []
-  } = invitadoData;
+  const nombre = invitadoData.nombre || invitadoData.Nombre || invitadoData.name || invitadoData.guest_name || "";
+  const email = invitadoData.email || invitadoData.Email || invitadoData.correo || invitadoData.mail || "";
+  const telefono = invitadoData.telefono || invitadoData.Telefono || invitadoData.phone || "";
+  const numInvitados = invitadoData.numInvitados || invitadoData.NumInvitados || invitadoData.invitados || invitadoData.seats || 1;
+  const notas = invitadoData.notas || invitadoData.Notas || "";
+  const personas = invitadoData.personas || [];
 
   if (!nombre || !nombre.trim()) {
     throw new Error("El nombre del invitado es obligatorio");

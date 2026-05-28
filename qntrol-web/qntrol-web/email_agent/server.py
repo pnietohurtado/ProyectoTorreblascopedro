@@ -197,7 +197,8 @@ def send_emails(payload: SendInvitationsRequest):
                     )
                     exitosos += 1
                     print(f"📧 [API] Correo enviado a {persona.nombre} en [{guest_seat}] a la dirección <{target_email}>")
-                    time.sleep(1.2) # Throttling
+                    if config.EMAIL_DELAY_SECONDS > 0:
+                        time.sleep(config.EMAIL_DELAY_SECONDS)
                 except Exception as err:
                     fallidos += 1
                     errors.append({"guest": persona.nombre, "error": str(err)})
@@ -232,7 +233,8 @@ def send_emails(payload: SendInvitationsRequest):
                     )
                     exitosos += 1
                     print(f"📧 [API] Correo enviado a {guest.nombre} en [{guest_seat}]")
-                    time.sleep(1.2)
+                    if config.EMAIL_DELAY_SECONDS > 0:
+                        time.sleep(config.EMAIL_DELAY_SECONDS)
                 except Exception as err:
                     fallidos += 1
                     errors.append({"guest": guest.nombre, "error": str(err)})

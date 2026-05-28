@@ -109,7 +109,7 @@ export const sendInvitationsToAll = async (eventData, guestList, customSubject =
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.detail || 'Error en el agente local de correos.');
   } catch (agentError) {
-    console.warn('El agente local de correos no está disponible; usando EmailJS.', agentError.message);
+    throw new Error(`El agente local de correos no está disponible: ${agentError.message}`);
   }
 
   const result = { success: 0, failed: 0, skipped: 0, errors: [] };
