@@ -3,6 +3,9 @@ package com.example.qntrol;
 import android.content.Context;
 import android.os.Build;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,11 +27,11 @@ public final class AppLogHelper {
         String safeEmail = email != null && !email.trim().isEmpty()
                 ? email.trim()
                 : context.getString(R.string.log_unknown_user);
-        addLog(context, context.getString(R.string.log_user_entered_app, safeEmail, getDeviceName()));
+        addLog(context, safeEmail, context.getString(R.string.log_user_entered_app, safeEmail, getDeviceName()));
     }
 
     public static void logEntryAccepted(Context context, String guestLabel, String ownerName, String source) {
-        addLog(context, context.getString(
+        addLog(context, getCurrentUserEmail(), context.getString(
                 R.string.log_guest_entry_accepted,
                 getDeviceName(),
                 safeValue(context, guestLabel, R.string.generic_guest_name),
@@ -38,28 +41,47 @@ public final class AppLogHelper {
     }
 
     public static List<String> getLogs(Context context) {
+        String logsKey = getCurrentLogsKey();
+        if (logsKey == null) {
+            return new ArrayList<>();
+        }
+
+        return getLogs(context, logsKey);
+    }
+
+    private static List<String> getLogs(Context context, String logsKey) {
         String rawLogs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .getString(KEY_LOGS, "");
+                .getString(logsKey, "");
         if (rawLogs == null || rawLogs.trim().isEmpty()) {
             return new ArrayList<>();
         }
         List<String> logs = new ArrayList<>(Arrays.asList(rawLogs.split(ENTRY_SEPARATOR)));
         List<String> freshLogs = removeExpiredLogs(logs);
         if (freshLogs.size() != logs.size()) {
-            saveLogs(context, freshLogs);
+            saveLogs(context, logsKey, freshLogs);
         }
         return freshLogs;
     }
 
     public static void clearLogs(Context context) {
+        String logsKey = getCurrentLogsKey();
+        if (logsKey == null) {
+            return;
+        }
+
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
-                .remove(KEY_LOGS)
+                .remove(logsKey)
                 .apply();
     }
 
-    private static void addLog(Context context, String message) {
-        List<String> logs = getLogs(context);
+    private static void addLog(Context context, String email, String message) {
+        String logsKey = getLogsKey(email);
+        if (logsKey == null) {
+            return;
+        }
+
+        List<String> logs = getLogs(context, logsKey);
         String timestamp = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(new Date());
         logs.add(0, timestamp + " - " + message);
 
@@ -67,13 +89,13 @@ public final class AppLogHelper {
             logs = new ArrayList<>(logs.subList(0, MAX_LOG_ENTRIES));
         }
 
-        saveLogs(context, logs);
+        saveLogs(context, logsKey, logs);
     }
 
-    private static void saveLogs(Context context, List<String> logs) {
+    private static void saveLogs(Context context, String logsKey, List<String> logs) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
-                .putString(KEY_LOGS, joinLogs(logs))
+                .putString(logsKey, joinLogs(logs))
                 .apply();
     }
 
@@ -133,5 +155,23 @@ public final class AppLogHelper {
         return value != null && !value.trim().isEmpty()
                 ? value.trim()
                 : context.getString(fallbackResId);
+    }
+
+    private static String getCurrentLogsKey() {
+        return getLogsKey(getCurrentUserEmail());
+    }
+
+    private static String getCurrentUserEmail() {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        return user != null ? user.getEmail() : null;
+    }
+
+    private static String getLogsKey(String email) {
+        if (email == null || email.trim().isEmpty()) {
+            return null;
+        }
+
+        String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
+        return KEY_LOGS + "_" + normalizedEmail.replaceAll("[^a-z0-9._-]", "_");
     }
 }

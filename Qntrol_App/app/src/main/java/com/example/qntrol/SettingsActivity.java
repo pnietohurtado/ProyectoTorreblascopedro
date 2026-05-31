@@ -27,9 +27,10 @@ public class SettingsActivity extends AppCompatActivity {
 
         mAuth = FirebaseAuth.getInstance();
 
-        // Check if we should hide logout button (e.g. opened from Login screen)
-        boolean hideLogout = getIntent().getBooleanExtra("HIDE_LOGOUT", false);
-        if (hideLogout) {
+        boolean publicSettings = getIntent().getBooleanExtra("HIDE_LOGOUT", false);
+        if (publicSettings) {
+            findViewById(R.id.cardScanMode).setVisibility(View.GONE);
+            findViewById(R.id.cardLogs).setVisibility(View.GONE);
             findViewById(R.id.btnLogout).setVisibility(View.GONE);
         }
 
