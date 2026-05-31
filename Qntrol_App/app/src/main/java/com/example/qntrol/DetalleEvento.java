@@ -191,12 +191,9 @@ public class DetalleEvento extends AppCompatActivity {
         layoutGuestsContainer.removeAllViews();
 
         if (personas != null) {
-            // Find companions (exclude the titular student)
             for (int i = 0; i < personas.size(); i++) {
                 Map<String, Object> p = personas.get(i);
-                String pName = (String) p.get("nombre");
-                if (pName != null && !normalizeSearchText(pName).equals(normalizeSearchText(nombreTitular))) {
-                    // It's a companion, inflate and add view
+                if (!isTitularPersona(p, i, personas.size(), nombreTitular)) {
                     inflarInvitado(p, i, doc.getId());
                 }
             }
@@ -210,11 +207,11 @@ public class DetalleEvento extends AppCompatActivity {
         TextView tvTime = guestView.findViewById(R.id.tvGuestTime);
         CheckBox cb = guestView.findViewById(R.id.cbGuest);
 
-        String name = (String) p.get("nombre");
+        String name = getPersonaName(p);
         Boolean esc = (Boolean) p.get("escaneado");
         Timestamp time = (Timestamp) p.get("fechaEscaneo");
 
-        tvName.setText(name != null ? name : getString(R.string.generic_guest_name));
+        tvName.setText(!TextUtils.isEmpty(name) ? name : getString(R.string.generic_guest_with_number, originalIndex + 1));
         cb.setChecked(esc != null && esc);
         tvTime.setText(time != null ? dateFormat.format(time.toDate()) : getString(R.string.guest_not_registered));
 
@@ -322,6 +319,30 @@ public class DetalleEvento extends AppCompatActivity {
 
         String nombreCapitalizado = doc.getString("Nombre");
         if (!TextUtils.isEmpty(nombreCapitalizado)) return nombreCapitalizado;
+
+        return null;
+    }
+
+    private boolean isTitularPersona(Map<String, Object> persona, int index, int totalPersonas, String nombreTitular) {
+        if (totalPersonas <= 1 || index != 0 || TextUtils.isEmpty(nombreTitular)) {
+            return false;
+        }
+
+        String personaName = getPersonaName(persona);
+        return !TextUtils.isEmpty(personaName)
+                && normalizeSearchText(personaName).equals(normalizeSearchText(nombreTitular));
+    }
+
+    private String getPersonaName(Map<String, Object> persona) {
+        if (persona == null) return null;
+
+        String[] fields = {"NOMBRE", "nombre", "Nombre"};
+        for (String field : fields) {
+            Object value = persona.get(field);
+            if (value instanceof String && !TextUtils.isEmpty((String) value)) {
+                return ((String) value).trim();
+            }
+        }
 
         return null;
     }
