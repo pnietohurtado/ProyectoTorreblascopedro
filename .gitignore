@@ -35,6 +35,21 @@ google-services.json
 *.log
 
 # ================================
+# Secrets / local environment
+# ================================
+.env
+**/.env
+!.env.template
+!.env.example
+
+# Python local environments / caches
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# ================================
 # OS Files
 # ================================
 .DS_Store

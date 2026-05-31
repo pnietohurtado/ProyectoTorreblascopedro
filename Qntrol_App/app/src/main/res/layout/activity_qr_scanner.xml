@@ -71,8 +71,9 @@
 
         <LinearLayout
             android:id="@+id/cardFeedback"
-            android:layout_width="320dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginHorizontal="24dp"
             android:orientation="vertical"
             android:gravity="center"
             android:clipToOutline="true"
@@ -86,12 +87,12 @@
 
             <ImageView
                 android:id="@+id/ivFeedbackIcon"
-                android:layout_width="72dp"
-                android:layout_height="72dp"
-                android:layout_marginTop="24dp"
-                android:layout_marginBottom="18dp"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_marginTop="22dp"
+                android:layout_marginBottom="16dp"
                 android:background="@drawable/bg_feedback_icon_circle"
-                android:padding="18dp" />
+                android:padding="16dp" />
 
             <TextView
                 android:id="@+id/tvFeedbackTitle"
@@ -101,7 +102,7 @@
                 android:gravity="center"
                 android:text="@string/feedback_access_allowed"
                 android:textColor="#2B2738"
-                android:textSize="22sp"
+                android:textSize="21sp"
                 android:fontFamily="@font/inter_bold" />
 
             <TextView
@@ -113,13 +114,14 @@
                 android:gravity="center"
                 android:text="@string/feedback_access_allowed_detail"
                 android:textColor="#756B82"
-                android:textSize="15sp"
+                android:textSize="14sp"
                 android:fontFamily="@font/inter_medium" />
 
             <TextView
                 android:id="@+id/tvFeedbackSeatInfo"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginHorizontal="24dp"
                 android:layout_marginTop="18dp"
                 android:background="@drawable/bg_feedback_seat_chip"
                 android:gravity="center"
@@ -127,8 +129,24 @@
                 android:paddingHorizontal="18dp"
                 android:paddingVertical="8dp"
                 android:textColor="#2B2738"
-                android:textSize="16sp"
+                android:textSize="15sp"
                 android:fontFamily="@font/inter_bold"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tvFeedbackSectionInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="24dp"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_feedback_seat_chip"
+                android:gravity="center"
+                android:minHeight="34dp"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="8dp"
+                android:textColor="#2B2738"
+                android:textSize="14sp"
+                android:fontFamily="@font/inter_semibold"
                 android:visibility="gone" />
 
             <TextView
@@ -136,6 +154,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
+                android:layout_marginBottom="24dp"
                 android:text="@string/feedback_auto_dismiss"
                 android:textColor="#8A7E98"
                 android:textSize="12sp"

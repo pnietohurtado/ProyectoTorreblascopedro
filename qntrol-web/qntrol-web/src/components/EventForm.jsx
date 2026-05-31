@@ -1,7 +1,10 @@
 import React, { useState, useRef } from 'react';
 import Button from './Button';
+import AppModal from './AppModal';
+import TheaterSectionEditor from './TheaterSectionEditor';
 import excelIcon from '../assets/excel-icon.png';
 import { crearEvento, cargarInvitadosCSV } from "../firebase/firebase";
+import { INFANTA_LEONOR_SECTIONS, THEATER_TOTAL_CAPACITY } from "../utils/theaterSeating";
 
 const EventForm = ({ onSave, onCancel }) => {
   // --- ESTADOS GENERALES ---
@@ -15,8 +18,6 @@ const EventForm = ({ onSave, onCancel }) => {
   // --- LÓGICA DE ARCHIVOS (CSV) ---
   const [guestList, setGuestList] = useState([]);
   const [fileName, setFileName] = useState('');
-  const [dragActive, setDragActive] = useState(false);
-  const [showUploadArea, setShowUploadArea] = useState(false);
   const fileInputRef = useRef(null);
 
   // --- CONFIGURACIÓN DE SALÓN (MAPA VISUAL) ---
@@ -25,16 +26,12 @@ const EventForm = ({ onSave, onCancel }) => {
   const [selectedSeats, setSelectedSeats] = useState({});
   const [hiddenSeats, setHiddenSeats] = useState({});
   const [seatEditMode, setSeatEditMode] = useState('select'); // 'select' o 'delete'
+  const [seatSections] = useState(INFANTA_LEONOR_SECTIONS);
+  const [reservedSeatsText, setReservedSeatsText] = useState('');
+  const [reservedSeatIds, setReservedSeatIds] = useState([]);
 
   // --- CONFIGURACIÓN DEL MENSAJE ---
-  const [mensajeAsunto, setMensajeAsunto] = useState('');
-  const [mensajeCuerpo, setMensajeCuerpo] = useState('Hola {{nombre_alumno}},\n\nTu invitación para {{nombre_evento}} está lista.');
-  const textareaRef = useRef(null);
-
-  const variablesDisponibles = [
-    '{{nombre_alumno}}', '{{nombre_evento}}', '{{fecha_evento}}',
-    '{{hora_evento}}', '{{nombre_salon}}', '{{asiento_asignado}}'
-  ];
+  const [modal, setModal] = useState(null);
 
   // --- FUNCIONES DE ASISTENCIA ---
   const getRowLabel = (index) => {
@@ -88,21 +85,12 @@ const EventForm = ({ onSave, onCancel }) => {
     reader.readAsText(file, 'UTF-8');
   };
 
-  // --- LÓGICA DE DRAG VARIABLES ---
-  const handleDropVariable = (e) => {
-    e.preventDefault();
-    const variable = e.dataTransfer.getData('text/plain');
-    const textarea = textareaRef.current;
-    if (textarea) {
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      setMensajeCuerpo(mensajeCuerpo.substring(0, start) + variable + mensajeCuerpo.substring(end));
-    }
-  };
-
   // --- SUBMIT FINAL ---
   const handleSubmit = async () => {
-    if (!title || !date) return alert('Por favor rellena el título y la fecha.');
+    if (!title || !date) {
+      setModal({ title: 'Datos incompletos', body: 'Por favor rellena el título y la fecha.' });
+      return;
+    }
     setLoading(true);
     try {
       const result = await crearEvento({
@@ -114,8 +102,10 @@ const EventForm = ({ onSave, onCancel }) => {
         seatCols,
         selectedSeats,
         hiddenSeats,
-        mensajeAsunto,
-        mensajeCuerpo
+        seatSections,
+        reservedSeatsText,
+        reservedSeatIds,
+        capacidadMaxima: THEATER_TOTAL_CAPACITY
       });
 
       if (guestList.length > 0) {
@@ -123,7 +113,7 @@ const EventForm = ({ onSave, onCancel }) => {
       }
       onSave(result);
     } catch (error) {
-      alert("Error al crear evento: " + error.message);
+      setModal({ title: 'Error al crear evento', body: error.message });
     } finally {
       setLoading(false);
     }
@@ -137,17 +127,30 @@ const EventForm = ({ onSave, onCancel }) => {
         <div className="bg-gradient-to-r from-[#7738B0] to-[#592a85] pt-6 px-8 shrink-0">
           <h2 className="text-2xl font-black text-white mb-6 uppercase tracking-tight">Nuevo Evento</h2>
           <div className="flex gap-8">
-            {['general', 'salon', 'mensaje'].map(tab => (
+            {['general', 'salon', 'mensaje'].map(tab => {
+              const isDisabled = tab === 'mensaje';
+              return (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => !isDisabled && setActiveTab(tab)}
+                disabled={isDisabled}
                 className={`pb-4 text-xs font-black uppercase tracking-widest border-b-4 transition-all ${
-                  activeTab === tab ? 'border-white text-white' : 'border-transparent text-white/30 hover:text-white/60'
+                  isDisabled
+                    ? 'border-transparent text-white/25 cursor-not-allowed'
+                    : activeTab === tab
+                      ? 'border-white text-white'
+                      : 'border-transparent text-white/30 hover:text-white/60'
                 }`}
               >
-                {tab === 'general' ? 'Información' : tab === 'salon' ? 'Salón' : 'Invitación'}
+                <span>{tab === 'general' ? 'Información' : tab === 'salon' ? 'Salón' : 'Invitación'}</span>
+                {isDisabled && (
+                  <span className="ml-2 rounded-full bg-black/25 px-2 py-1 text-[8px] text-white/45">
+                    Deshabilitado
+                  </span>
+                )}
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -187,7 +190,103 @@ const EventForm = ({ onSave, onCancel }) => {
           {/* PESTAÑA 2: SALÓN (MAPA) */}
           {activeTab === 'salon' && (
             <div className="flex flex-col gap-8 animate-fadeIn">
-              <div className="flex flex-wrap gap-4 bg-black/20 p-6 rounded-3xl border border-white/5 items-end">
+              <div className="hidden bg-black/20 p-6 rounded-3xl border border-white/5">
+                <p className="text-[10px] text-purple-300 font-black uppercase tracking-[0.2em] mb-2">Plano aplicado</p>
+                <h3 className="text-white text-2xl font-black">Nuevo Teatro Infanta Leonor</h3>
+                <p className="text-gray-500 text-sm mt-2">La asignación se hará automáticamente por sectores. Para acceso adaptado, añade una columna TipoAcceso con el valor PMR en el CSV.</p>
+              </div>
+
+              <div className="hidden bg-black/20 p-6 rounded-3xl border border-white/5">
+                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
+                  <div>
+                    <p className="text-[10px] text-purple-300 font-black uppercase tracking-[0.2em] mb-2">Butacas reservadas</p>
+                    <h3 className="text-white text-xl font-black">Excluir de la asignación automática</h3>
+                    <p className="text-gray-500 text-sm mt-2">Usa una línea por zona, fila y asiento. Puedes poner rangos.</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-[11px] text-gray-300 leading-relaxed">
+                    <p><strong className="text-white">Ejemplo:</strong> patio-b 1 11-20</p>
+                    <p>anfiteatro-a 3 1,2,3</p>
+                  </div>
+                </div>
+                <textarea
+                  value={reservedSeatsText}
+                  onChange={(e) => setReservedSeatsText(e.target.value)}
+                  placeholder={"patio-b 1 11-20\npatio-c 10 21,22\nanfiteatro-a 3 1-4"}
+                  className="w-full min-h-[120px] bg-[#1e1b2e] p-5 rounded-2xl text-white outline-none border border-white/5 focus:border-[#7738B0] resize-y leading-relaxed"
+                />
+                <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {seatSections.filter(section => section.type !== 'pmr').map(section => (
+                    <span key={section.id} className="rounded-xl bg-white/5 border border-white/5 px-3 py-2 text-[10px] text-gray-400">
+                      <strong className="text-white">{section.id}</strong> · filas 1-{section.rows} · asientos {section.seatStart}-{section.seatEnd}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <TheaterSectionEditor
+                sections={seatSections}
+                reservedSeatIds={reservedSeatIds}
+                onReservedSeatIdsChange={setReservedSeatIds}
+              />
+
+              <div className="hidden bg-[#13111C] p-8 rounded-[3rem] border border-white/5 overflow-auto shadow-inner">
+                <div className="min-w-[760px] flex flex-col gap-8">
+                  <div>
+                    <p className="text-center text-white/70 text-[11px] font-black uppercase tracking-[0.3em] mb-4">Anfiteatro</p>
+                    <div className="grid grid-cols-3 gap-6">
+                      {seatSections.filter(section => section.level === 'Anfiteatro').map(section => (
+                        <div key={section.id} className="rounded-2xl border border-white/10 p-4" style={{ backgroundColor: `${section.color}22` }}>
+                          <div className="flex justify-between items-start gap-4">
+                            <div>
+                              <p className="text-white font-black text-sm">{section.name}</p>
+                              <p className="text-white/45 text-[10px] mt-1 uppercase tracking-widest">{section.capacity} butacas</p>
+                            </div>
+                            <span className="rounded-full px-3 py-1 text-[10px] font-black text-white" style={{ backgroundColor: section.color }}>Sector {section.sector}</span>
+                          </div>
+                          <div className="mt-4 grid grid-cols-10 gap-1">
+                            {Array.from({ length: Math.min(section.capacity, 70) }).map((_, index) => (
+                              <span key={index} className="h-2 rounded-sm" style={{ backgroundColor: section.color }} />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-center text-white/70 text-[11px] font-black uppercase tracking-[0.3em] mb-4">Patio de butacas</p>
+                    <div className="grid grid-cols-3 gap-6">
+                      {seatSections.filter(section => section.level === 'Patio de Butacas' && section.type !== 'pmr').map(section => (
+                        <div key={section.id} className="rounded-2xl border border-white/10 p-4" style={{ backgroundColor: `${section.color}22` }}>
+                          <div className="flex justify-between items-start gap-4">
+                            <div>
+                              <p className="text-white font-black text-sm">{section.name}</p>
+                              <p className="text-white/45 text-[10px] mt-1 uppercase tracking-widest">{section.capacity} butacas</p>
+                            </div>
+                            <span className="rounded-full px-3 py-1 text-[10px] font-black text-white" style={{ backgroundColor: section.color }}>Sector {section.sector}</span>
+                          </div>
+                          {section.id === 'patio-c' && (
+                            <div className="mt-4 rounded-xl bg-yellow-400/20 border border-yellow-300/30 px-3 py-2 text-yellow-100 text-[11px] font-bold">
+                              Zona discapacitados integrada en este sector
+                            </div>
+                          )}
+                          <div className="mt-4 grid grid-cols-10 gap-1">
+                            {Array.from({ length: Math.min(section.capacity, 100) }).map((_, index) => (
+                              <span key={index} className="h-2 rounded-sm" style={{ backgroundColor: section.color }} />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="h-12 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-white/80 text-[11px] font-black uppercase tracking-[0.3em]">
+                    Escenario
+                  </div>
+                </div>
+              </div>
+
+              <div className="hidden flex-wrap gap-4 bg-black/20 p-6 rounded-3xl border border-white/5 items-end">
                 <div className="flex-1 min-w-[120px]">
                   <label className="text-[10px] text-gray-500 font-black uppercase mb-2 block">Filas</label>
                   <input type="number" value={seatRows} onChange={e => setSeatRows(parseInt(e.target.value) || 1)} className="w-full bg-[#1e1b2e] p-4 rounded-xl text-white outline-none" />
@@ -201,11 +300,11 @@ const EventForm = ({ onSave, onCancel }) => {
                 </button>
               </div>
 
-              <div className="flex flex-col items-center shrink-0 mb-4">
+              <div className="hidden flex-col items-center shrink-0 mb-4">
                 <div className="w-3/4 h-2 bg-gradient-to-r from-transparent via-[#7738B0] to-transparent rounded-full shadow-[0_0_30px_#7738B0]"></div>
               </div>
 
-              <div className="bg-[#13111C] p-10 rounded-[3rem] border border-white/5 overflow-auto flex flex-col items-center min-h-[450px] relative shadow-inner">
+              <div className="hidden bg-[#13111C] p-10 rounded-[3rem] border border-white/5 overflow-auto flex-col items-center min-h-[450px] relative shadow-inner">
                 <div className="flex flex-col gap-3 min-w-max pb-10">
                   {Array.from({ length: seatRows }).map((_, r) => (
                     <div key={r} className="flex gap-3 items-center">
@@ -229,31 +328,6 @@ const EventForm = ({ onSave, onCancel }) => {
             </div>
           )}
 
-          {/* PESTAÑA 3: MENSAJE */}
-          {activeTab === 'mensaje' && (
-            <div className="flex flex-col md:flex-row gap-8 animate-fadeIn h-full">
-              <div className="flex-1 flex flex-col gap-6">
-                <div className="flex flex-col gap-2">
-                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Asunto del Correo</label>
-                  <input value={mensajeAsunto} onChange={e => setMensajeAsunto(e.target.value)} placeholder="TU INVITACIÓN PARA {{nombre_evento}}" className="bg-[#1e1b2e] p-5 rounded-2xl text-white outline-none border border-transparent focus:border-[#7738B0]" />
-                </div>
-                <div className="flex flex-col gap-2 flex-1">
-                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Cuerpo del Mensaje (Soporta Drag & Drop)</label>
-                  <textarea ref={textareaRef} value={mensajeCuerpo} onChange={e => setMensajeCuerpo(e.target.value)} onDragOver={e => e.preventDefault()} onDrop={handleDropVariable} className="bg-[#1e1b2e] p-6 rounded-[2rem] text-white outline-none border border-transparent focus:border-[#7738B0] flex-1 min-h-[300px] resize-none leading-relaxed" />
-                </div>
-              </div>
-              <div className="w-full md:w-64 bg-black/20 p-6 rounded-[2rem] border border-white/5">
-                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Variables</p>
-                <div className="flex flex-col gap-2">
-                  {variablesDisponibles.map(v => (
-                    <div key={v} draggable onDragStart={e => e.dataTransfer.setData('text/plain', v)} className="bg-gray-800 p-3 rounded-xl text-[10px] font-black text-purple-400 border border-purple-500/20 cursor-grab active:cursor-grabbing hover:bg-gray-700 transition-colors">
-                      {v}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* FOOTER ACCIONES */}
@@ -264,6 +338,9 @@ const EventForm = ({ onSave, onCancel }) => {
           </Button>
         </div>
       </div>
+      <AppModal open={Boolean(modal)} title={modal?.title || ''} confirmLabel="Aceptar" onClose={() => setModal(null)}>
+        <p>{modal?.body}</p>
+      </AppModal>
     </div>
   );
 };

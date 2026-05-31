@@ -1,6 +1,5 @@
 import QRCode from 'qrcode';
 import emailjs from '@emailjs/browser';
-import { marcarEmailEnviado, actualizarAsientoInvitado } from '../firebase/firebase';
 
 // CONFIGURACIÓN DE EMAILJS
 const SERVICE_ID = 'service_0rt1cqa';
@@ -87,110 +86,26 @@ export const sendEventInvitation = async (eventData, guestData, customSubject = 
  * Envía correos masivos con Lógica de Asientos y Tracking
  */
 export const sendInvitationsToAll = async (eventData, guestList, customSubject = null, customBody = null) => {
-  try {
-    const response = await fetch('http://127.0.0.1:8000/api/send-emails', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        eventData,
-        guestList,
-        customSubject,
-        customBody,
-      }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      return data.result || data;
-    }
-
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || 'Error en el agente local de correos.');
-  } catch (agentError) {
+  const response = await fetch('http://127.0.0.1:8000/api/send-emails', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      eventData,
+      guestList,
+      customSubject,
+      customBody,
+    }),
+  }).catch((agentError) => {
     throw new Error(`El agente local de correos no está disponible: ${agentError.message}`);
+  });
+
+  if (response.ok) {
+    const data = await response.json();
+    return data.result || data;
   }
 
-  const result = { success: 0, failed: 0, skipped: 0, errors: [] };
-  const emailsEnviadosEnLote = new Set();
-  const eventId = eventData.id || eventData.eventId;
-
-  // Lógica de Asientos: Obtenemos las llaves de los asientos seleccionados y ordenamos
-  const availableSeats = eventData.selectedSeats 
-    ? Object.keys(eventData.selectedSeats).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })) 
-    : [];
-
-  let nextSeatIndex = 0;
-
-  for (const guest of guestList) {
-    // 1. Evitar re-envíos si ya se marcó en Firebase previamente
-    if (guest.emailEnviado) {
-      result.skipped++;
-      continue;
-    }
-
-    const personas = guest.personas || [];
-    const personasConEmail = personas.filter(p => p.email && p.email.trim() !== '');
-    
-    // Si nadie en el grupo tiene email, usamos el del titular.
-    const targets = personasConEmail.length > 0 ? personasConEmail : (guest.email ? [guest] : []);
-    
-    let exitoEnInvitado = false;
-
-    for (let i = 0; i < targets.length; i++) {
-      const target = targets[i];
-      const targetEmail = target.email.toLowerCase().trim();
-
-      if (emailsEnviadosEnLote.has(targetEmail)) {
-        result.skipped++;
-        continue;
-      }
-
-      // Asignación automática de asiento basado en el mapa visual
-      let assignedSeat = guest.asiento || 'Sin asiento asignado';
-      if (nextSeatIndex < availableSeats.length && (!guest.asiento || guest.asiento === 'Sin asiento asignado')) {
-        const seatKey = availableSeats[nextSeatIndex];
-        assignedSeat = `Fila ${seatKey.split('-')[0]}, Col ${seatKey.split('-')[1]}`;
-        
-        // Guardar en Firebase de forma asíncrona pero esperando respuesta
-        try {
-          await actualizarAsientoInvitado(eventId, guest.id, target.id || i, assignedSeat);
-        } catch (e) {
-          console.error("Error guardando asiento en Firebase:", e);
-        }
-        nextSeatIndex++;
-      }
-
-      try {
-        await sendEventInvitation(eventData, {
-          ...target,
-          asiento: assignedSeat,
-          // Buscamos el QR específico de la persona o heredamos el del titular
-          qrCode: target.qrCode || (personas.length > 0 ? personas[0].qrCode : guest.qrCode)
-        }, customSubject, customBody);
-        
-        result.success++;
-        emailsEnviadosEnLote.add(targetEmail);
-        exitoEnInvitado = true;
-      } catch (err) {
-        result.failed++;
-        result.errors.push({ guest: target.nombre, error: err.message });
-      }
-
-      // Pequeña pausa para no saturar el servidor de EmailJS (Antispam)
-      await new Promise(r => setTimeout(r, 500));
-    }
-
-    // 2. Si al menos un correo del invitado/grupo salió bien, marcamos en Firebase
-    if (exitoEnInvitado && guest.id) {
-      try {
-        await marcarEmailEnviado(eventId, guest.id);
-      } catch (e) {
-        console.error("Error marcando como enviado:", e);
-      }
-    }
-  }
-
-  return result;
+  const errorData = await response.json().catch(() => ({}));
+  throw new Error(errorData.detail || 'Error en el agente local de correos.');
 };

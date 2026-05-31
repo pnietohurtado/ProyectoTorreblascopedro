@@ -21,8 +21,10 @@ import androidx.core.content.ContextCompat;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.view.View;
+import android.view.ViewOutlineProvider;
 import android.widget.RelativeLayout;
 import android.graphics.drawable.GradientDrawable;
 import com.google.android.material.button.MaterialButton;
@@ -52,15 +54,16 @@ public class QrScannerActivity extends AppCompatActivity {
     private TextView tvAforoQr;
     private RelativeLayout overlayFeedback;
     private ImageView ivFeedbackIcon, ivBack;
-    private TextView tvFeedbackTitle, tvFeedbackDetail, tvFeedbackSeatInfo, tvFeedbackAutoDismiss;
+    private TextView tvFeedbackTitle, tvFeedbackDetail, tvFeedbackSeatInfo, tvFeedbackSectionInfo, tvFeedbackAutoDismiss;
     private View viewFeedbackAccent;
+    private LinearLayout cardFeedback;
     private MaterialButton btnCerrarFeedback;
     
     private boolean isProcessing = false;
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
     private String eventId, userEmail;
-    private final long SCAN_DELAY_MS = 2500;
+    private final long SCAN_DELAY_MS = 4000;
     private final Handler feedbackHandler = new Handler(Looper.getMainLooper());
 
     @Override
@@ -83,14 +86,18 @@ public class QrScannerActivity extends AppCompatActivity {
         previewView = findViewById(R.id.previewView);
         tvAforoQr = findViewById(R.id.tvAforoQr);
         overlayFeedback = findViewById(R.id.overlayFeedback);
+        cardFeedback = findViewById(R.id.cardFeedback);
         viewFeedbackAccent = findViewById(R.id.viewFeedbackAccent);
         ivFeedbackIcon = findViewById(R.id.ivFeedbackIcon);
         tvFeedbackTitle = findViewById(R.id.tvFeedbackTitle);
         tvFeedbackDetail = findViewById(R.id.tvFeedbackDetail);
         tvFeedbackSeatInfo = findViewById(R.id.tvFeedbackSeatInfo);
+        tvFeedbackSectionInfo = findViewById(R.id.tvFeedbackSectionInfo);
         tvFeedbackAutoDismiss = findViewById(R.id.tvFeedbackAutoDismiss);
         btnCerrarFeedback = findViewById(R.id.btnCerrarFeedback);
         ivBack = findViewById(R.id.ivBackScanner);
+        cardFeedback.setOutlineProvider(ViewOutlineProvider.BACKGROUND);
+        cardFeedback.setClipToOutline(true);
 
         btnCerrarFeedback.setOnClickListener(v -> {
             hideFeedback();
@@ -112,7 +119,7 @@ public class QrScannerActivity extends AppCompatActivity {
         }
     }
 
-    private void showFeedback(boolean isSuccess, String message, String seatInfo) {
+    private void showFeedback(boolean isSuccess, String message, String seatInfo, String sectionInfo) {
         runOnUiThread(() -> {
             feedbackHandler.removeCallbacksAndMessages(null);
             overlayFeedback.setVisibility(View.VISIBLE);
@@ -127,11 +134,18 @@ public class QrScannerActivity extends AppCompatActivity {
             } else {
                 tvFeedbackSeatInfo.setVisibility(View.GONE);
             }
+
+            if (sectionInfo != null && !sectionInfo.isEmpty()) {
+                tvFeedbackSectionInfo.setText(sectionInfo);
+                tvFeedbackSectionInfo.setVisibility(View.VISIBLE);
+            } else {
+                tvFeedbackSectionInfo.setVisibility(View.GONE);
+            }
             
             int accentColor = Color.parseColor(isSuccess ? "#2E7D32" : "#C62828");
             viewFeedbackAccent.setBackground(createFeedbackAccentDrawable(accentColor));
             ivFeedbackIcon.setImageResource(isSuccess
-                    ? android.R.drawable.checkbox_on_background
+                    ? R.drawable.ic_check
                     : android.R.drawable.ic_delete);
             ivFeedbackIcon.setColorFilter(accentColor);
 
@@ -164,15 +178,8 @@ public class QrScannerActivity extends AppCompatActivity {
     }
 
     private GradientDrawable createFeedbackAccentDrawable(int color) {
-        float radius = dpToPx(24);
         GradientDrawable drawable = new GradientDrawable();
         drawable.setColor(color);
-        drawable.setCornerRadii(new float[]{
-                radius, radius,
-                radius, radius,
-                0f, 0f,
-                0f, 0f
-        });
         return drawable;
     }
 
@@ -182,7 +189,11 @@ public class QrScannerActivity extends AppCompatActivity {
 
     // Overload for backward compatibility if needed, though we updated all calls
     private void showFeedback(boolean isSuccess, String message) {
-        showFeedback(isSuccess, message, null);
+        showFeedback(isSuccess, message, null, null);
+    }
+
+    private void showFeedback(boolean isSuccess, String message, String seatInfo) {
+        showFeedback(isSuccess, message, seatInfo, null);
     }
 
     private void startCamera() {
@@ -295,12 +306,144 @@ public class QrScannerActivity extends AppCompatActivity {
     }
 
     private String getStringFromMap(Map<String, Object> map, String... keys) {
+        if (map == null) {
+            return null;
+        }
+
         for (String key : keys) {
             Object value = map.get(key);
             if (value != null) {
                 return String.valueOf(value);
             }
         }
+        return null;
+    }
+
+    private String getStringFromDocument(DocumentSnapshot doc, String... keys) {
+        for (String key : keys) {
+            String value = doc.getString(key);
+            if (value != null && !value.trim().isEmpty()) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getMapFromMap(Map<String, Object> map, String key) {
+        if (map == null) {
+            return null;
+        }
+
+        Object value = map.get(key);
+        return value instanceof Map ? (Map<String, Object>) value : null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getMapFromDocument(DocumentSnapshot doc, String key) {
+        Object value = doc.get(key);
+        return value instanceof Map ? (Map<String, Object>) value : null;
+    }
+
+    private String extractSeat(DocumentSnapshot doc, Map<String, Object> persona) {
+        Map<String, Object> seatDetail = getSeatDetail(doc, persona);
+        String detailSeat = formatSeatFromDetail(seatDetail);
+        if (detailSeat != null && !detailSeat.trim().isEmpty()) {
+            return detailSeat;
+        }
+
+        String seat = simplifySeatText(getStringFromMap(persona, "asiento", "Asiento"));
+        if (seat != null && !seat.trim().isEmpty()) {
+            return seat;
+        }
+        return simplifySeatText(getStringFromDocument(doc, "asiento", "Asiento"));
+    }
+
+    private String extractSection(DocumentSnapshot doc, Map<String, Object> persona) {
+        Map<String, Object> seatDetail = getSeatDetail(doc, persona);
+        String sector = getStringFromMap(seatDetail, "sector");
+        if (sector != null && !sector.trim().isEmpty()) {
+            String trimmedSector = sector.trim();
+            return trimmedSector.toLowerCase().startsWith("sector")
+                    ? trimmedSector
+                    : getString(R.string.feedback_sector_value_format, trimmedSector);
+        }
+
+        String type = getStringFromMap(seatDetail, "type");
+        if ("pmr".equalsIgnoreCase(type)) {
+            String pmrName = getStringFromMap(seatDetail, "name", "sectionName");
+            if (pmrName != null && !pmrName.trim().isEmpty()) {
+                return pmrName;
+            }
+        }
+
+        String section = getStringFromMap(seatDetail, "sectionName", "level", "name");
+        String parsedSector = parseSectorFromSeatText(getStringFromMap(persona, "asiento", "Asiento"));
+        if (parsedSector == null || parsedSector.trim().isEmpty()) {
+            parsedSector = parseSectorFromSeatText(getStringFromDocument(doc, "asiento", "Asiento"));
+        }
+        if (parsedSector != null && !parsedSector.trim().isEmpty()) {
+            return parsedSector;
+        }
+
+        if (section != null && !section.trim().isEmpty()) {
+            return section;
+        }
+
+        return getStringFromDocument(doc, "seccion", "Seccion", "sección", "Sección", "sectionName");
+    }
+
+    private Map<String, Object> getSeatDetail(DocumentSnapshot doc, Map<String, Object> persona) {
+        Map<String, Object> personaSeatDetail = getMapFromMap(persona, "asientoDetalle");
+        return personaSeatDetail != null ? personaSeatDetail : getMapFromDocument(doc, "asientoDetalle");
+    }
+
+    private String formatSeatFromDetail(Map<String, Object> seatDetail) {
+        if (seatDetail == null) {
+            return null;
+        }
+
+        String type = getStringFromMap(seatDetail, "type");
+        if ("pmr".equalsIgnoreCase(type)) {
+            return getStringFromMap(seatDetail, "name", "sectionName");
+        }
+
+        String row = getStringFromMap(seatDetail, "row", "fila");
+        String number = getStringFromMap(seatDetail, "number", "asiento");
+        if (row != null && !row.trim().isEmpty() && number != null && !number.trim().isEmpty()) {
+            return getString(R.string.feedback_row_seat_format, row.trim(), number.trim());
+        }
+
+        return null;
+    }
+
+    private String simplifySeatText(String seat) {
+        if (seat == null || seat.trim().isEmpty()) {
+            return null;
+        }
+
+        String trimmedSeat = seat.trim();
+        int separatorIndex = trimmedSeat.lastIndexOf('|');
+        if (separatorIndex >= 0 && separatorIndex + 1 < trimmedSeat.length()) {
+            return trimmedSeat.substring(separatorIndex + 1).trim();
+        }
+
+        return trimmedSeat;
+    }
+
+    private String parseSectorFromSeatText(String seat) {
+        if (seat == null || seat.trim().isEmpty()) {
+            return null;
+        }
+
+        String[] parts = seat.split("\\|")[0].split("-");
+        for (String part : parts) {
+            String trimmedPart = part.trim();
+            if (trimmedPart.toLowerCase().startsWith("sector")) {
+                return trimmedPart;
+            }
+        }
+
         return null;
     }
 
@@ -336,19 +479,23 @@ public class QrScannerActivity extends AppCompatActivity {
         final String guestLabel = getString(R.string.generic_guest_with_number, index + 1);
         final String guestDisplay = getString(R.string.feedback_guest_of, index + 1, titularName);
 
-        String asiento = doc.getString("asiento");
-        if (asiento == null || asiento.trim().isEmpty()) {
-            asiento = doc.getString("Asiento");
-        }
+        String asiento = extractSeat(doc, persona);
+        String section = extractSection(doc, persona);
         final String seatInfo = getString(
                 R.string.feedback_seat_format,
                 asiento != null && !asiento.trim().isEmpty()
                         ? asiento
                         : getString(R.string.feedback_no_seat)
         );
+        final String sectionInfo = getString(
+                R.string.feedback_sector_format,
+                section != null && !section.trim().isEmpty()
+                        ? section
+                        : getString(R.string.feedback_no_section)
+        );
 
         if (yaEscaneado != null && yaEscaneado) {
-            showFeedback(false, getString(R.string.feedback_already_entered) + "\n" + guestDisplay, seatInfo);
+            showFeedback(false, getString(R.string.feedback_already_entered) + "\n" + guestDisplay, seatInfo, sectionInfo);
             return;
         }
 
@@ -360,7 +507,7 @@ public class QrScannerActivity extends AppCompatActivity {
         doc.getReference().update("personas", personas)
                 .addOnSuccessListener(aVoid -> {
                     AppLogHelper.logEntryAccepted(this, guestLabel, titularName, getString(R.string.log_source_qr));
-                    showFeedback(true, getString(R.string.feedback_access_allowed) + "\n" + guestDisplay, seatInfo);
+                    showFeedback(true, getString(R.string.feedback_access_allowed) + "\n" + guestDisplay, seatInfo, sectionInfo);
                     updateCapacity();
                     
                     Intent resultIntent = new Intent();

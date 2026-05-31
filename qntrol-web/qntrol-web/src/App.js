@@ -6,6 +6,8 @@ import EventList from './components/EventList';
 import EventForm from './components/EventForm';
 import Login from './components/Login';
 import Register from './components/Register';
+import SupportPage from './components/SupportPage';
+import ProfilePage from './components/ProfilePage';
 
 import { AuthProvider, useAuth } from './contexts/authContext';
 import { getEventosUsuario } from './firebase/firebase';
@@ -42,20 +44,16 @@ const EventFormWrapper = ({ onAddEvent }) => {
 function AppContent() {
   const { currentUser } = useAuth();
   const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(false);
 
   // Cargar eventos desde Firebase
   useEffect(() => {
     async function loadEvents() {
       if (currentUser?.email) {
-        setLoading(true);
         try {
           const userEvents = await getEventosUsuario(currentUser.email);
           if (userEvents) setEvents(userEvents);
         } catch (error) {
           console.error("Error cargando eventos:", error);
-        } finally {
-          setLoading(false);
         }
       } else {
         setEvents([]);
@@ -115,6 +113,22 @@ function AppContent() {
           <PrivateRoute>
             <Layout>
               <EventFormWrapper onAddEvent={handleAddEvent} />
+            </Layout>
+          </PrivateRoute>
+        } />
+
+        <Route path="/support" element={
+          <PrivateRoute>
+            <Layout>
+              <SupportPage />
+            </Layout>
+          </PrivateRoute>
+        } />
+
+        <Route path="/profile" element={
+          <PrivateRoute>
+            <Layout>
+              <ProfilePage />
             </Layout>
           </PrivateRoute>
         } />

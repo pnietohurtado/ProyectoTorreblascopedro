@@ -88,14 +88,27 @@ def generate_qr_image(qr_data):
         img.save(buffer)
     return buffer.getvalue()
 
+def attach_inline_image(message, image_path, content_id, filename):
+    if not os.path.exists(image_path):
+        print(f"⚠️  No se encontró la imagen para el correo: {image_path}")
+        return
+
+    with open(image_path, 'rb') as image_file:
+        image = MIMEImage(image_file.read(), name=filename)
+    image.add_header('Content-ID', f'<{content_id}>')
+    image.add_header('Content-Disposition', 'inline', filename=filename)
+    message.attach(image)
+
 # Enviar correo individual
 def send_individual_email(server, guest_name, guest_email, qr_code_value, event_data, template_html, guest_seat="Entrada General"):
     # Generar CID único para incrustar el QR
     qr_cid = f"qr_{slugify(guest_name)}_{int(time.time())}"
+    hero_cid = "graduacion_header"
+    qntrol_logo_cid = "qntrol_logo"
     
     # Crear mensaje MIME multipart
     msg = MIMEMultipart('related')
-    subject = f"🎟️ Tu pase de invitación para: {event_data['name']}"
+    subject = f"¡Importante! Instrucciones, horarios y acceso con QR para {event_data['name']}"
     msg['Subject'] = subject
     msg['From'] = f"{config.SMTP_SENDER_NAME} <{config.SMTP_USER}>"
     msg['To'] = guest_email
@@ -113,6 +126,8 @@ def send_individual_email(server, guest_name, guest_email, qr_code_value, event_
     html_body = html_body.replace("{{ event_address }}", event_data['address'])
     html_body = html_body.replace("{{ guest_seat }}", guest_seat)
     html_body = html_body.replace("{{ qr_cid }}", qr_cid)
+    html_body = html_body.replace("{{ hero_cid }}", hero_cid)
+    html_body = html_body.replace("{{ qntrol_logo_cid }}", qntrol_logo_cid)
     
     msg_html = MIMEText(html_body, 'html', 'utf-8')
     msg_alternative.attach(msg_html)
@@ -123,6 +138,11 @@ def send_individual_email(server, guest_name, guest_email, qr_code_value, event_
     msg_image.add_header('Content-ID', f'<{qr_cid}>')
     msg_image.add_header('Content-Disposition', 'inline', filename="pase_acceso.png")
     msg.attach(msg_image)
+
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    assets_dir = os.path.join(current_dir, 'templates', 'assets')
+    attach_inline_image(msg, os.path.join(assets_dir, 'graduacion_header.jpg'), hero_cid, 'graduacion_header.jpg')
+    attach_inline_image(msg, os.path.join(assets_dir, 'qntrol_logo.png'), qntrol_logo_cid, 'qntrol_logo.png')
     
     # Enviar correo
     server.sendmail(config.SMTP_USER, guest_email, msg.as_string())

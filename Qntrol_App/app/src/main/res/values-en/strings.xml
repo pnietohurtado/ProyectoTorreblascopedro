@@ -59,7 +59,11 @@
     <string name="feedback_auto_dismiss">Closes automatically</string>
     <string name="feedback_guest_of">Guest %1$d of %2$s</string>
     <string name="feedback_seat_format">Seat: %1$s</string>
+    <string name="feedback_sector_format">Sector: %1$s</string>
+    <string name="feedback_sector_value_format">Sector %1$s</string>
+    <string name="feedback_row_seat_format">Row %1$s - Seat %2$s</string>
     <string name="feedback_no_seat">Not assigned</string>
+    <string name="feedback_no_section">Not assigned</string>
     <string name="feedback_unknown_guest">Unknown</string>
     <string name="generic_guest_name">Guest</string>
     <string name="capacity_format">Capacity: %1$d/%2$d</string>

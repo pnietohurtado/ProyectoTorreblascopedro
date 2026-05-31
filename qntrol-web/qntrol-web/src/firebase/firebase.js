@@ -10,9 +10,17 @@ import {
   getDocs,
   updateDoc,
   deleteDoc,
-  serverTimestamp,
-  arrayUnion
+  serverTimestamp
 } from "firebase/firestore";
+import {
+  INFANTA_LEONOR_SECTIONS,
+  THEATER_TOTAL_CAPACITY,
+  formatSeat,
+  getAccessTypeFromRow,
+  getPmrSeat,
+  getSeatMapFromSections,
+  isPmrAccess
+} from "../utils/theaterSeating";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCmS7u3iX8cJuTZzQu8XHQXu4yqHkchH-s",
@@ -75,9 +83,9 @@ export const crearEvento = async (eventoData) => {
   if (!user || !user.email) throw new Error("Usuario no autenticado");
 
   const { 
-    nombreEvento, direccion, fecha, hora, descripcion = "", capacidadMaxima = 100,
+    nombreEvento, direccion, fecha, hora, descripcion = "", capacidadMaxima = THEATER_TOTAL_CAPACITY,
     seatRows = 10, seatCols = 10, selectedSeats = {}, hiddenSeats = {},
-    mensajeAsunto = "", mensajeCuerpo = "" 
+    seatSections = INFANTA_LEONOR_SECTIONS, reservedSeatsText = "", reservedSeatIds = []
   } = eventoData;
 
   const eventoId = `${nombreEvento.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}`;
@@ -91,7 +99,7 @@ export const crearEvento = async (eventoData) => {
     fecha,
     hora,
     descripcion: descripcion.trim(),
-    capacidadMaxima: parseInt(capacidadMaxima) || 100,
+    capacidadMaxima: parseInt(capacidadMaxima) || THEATER_TOTAL_CAPACITY,
     fechaCreacion: serverTimestamp(),
     estado: "activo",
     personasEscaneadas: 0,
@@ -102,9 +110,10 @@ export const crearEvento = async (eventoData) => {
     seatCols,
     selectedSeats,
     hiddenSeats,
-    // Configuración de Email
-    mensajeAsunto,
-    mensajeCuerpo
+    seatSections,
+    reservedSeatsText,
+    reservedSeatIds,
+    seatingMode: "sections"
   };
 
   await setDoc(eventoRef, eventoCompleto);
@@ -121,6 +130,7 @@ export const agregarInvitado = async (eventoId, invitadoData) => {
   const email = invitadoData.email || invitadoData.Email || invitadoData.correo || invitadoData.mail || "";
   const numInvitados = invitadoData.numInvitados || invitadoData.NumInvitados || invitadoData.invitados || invitadoData.seats || 1;
   const personas = invitadoData.personas || [];
+  const tipoAcceso = getAccessTypeFromRow(invitadoData);
 
   if (!nombre.trim()) {
     throw new Error("El nombre del invitado es obligatorio");
@@ -128,15 +138,34 @@ export const agregarInvitado = async (eventoId, invitadoData) => {
 
   const numPersonas = parseInt(numInvitados) || 1;
   const invitadoId = `${nombre.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}`;
+  const eventoRef = doc(db, "usuarios", userEmail, "eventos", eventoId);
+  const eventoSnap = await getDoc(eventoRef);
+  const eventoData = eventoSnap.exists() ? eventoSnap.data() : {};
+  const seatSections = eventoData.seatSections || INFANTA_LEONOR_SECTIONS;
+  const reservedSeatIds = eventoData.reservedSeatIds || [];
+  const pmr = isPmrAccess(tipoAcceso);
+  const assignedSeats = pmr
+    ? Array.from({ length: numPersonas }, () => getPmrSeat(seatSections))
+    : await getNextAvailableSeats(userEmail, eventoId, seatSections, numPersonas, reservedSeatIds);
+  const assignedSeatText = pmr
+    ? formatSeat(assignedSeats[0])
+    : assignedSeats.map(formatSeat).join(" / ");
+
+  if (!pmr && assignedSeats.length < numPersonas) {
+    throw new Error("No quedan asientos disponibles para asignar a todos los invitados.");
+  }
 
   let personasArray = personas.length > 0 ? personas : [];
   if (personasArray.length === 0) {
     for (let i = 0; i < numPersonas; i++) {
+      const seat = assignedSeats[i] || null;
       personasArray.push({
         id: `persona_${Date.now()}_${i}`,
         nombre: i === 0 ? nombre.trim() : `${nombre.trim()} - Acompañante ${i}`,
         email: i === 0 ? email.trim() : "",
         qrCode: `${eventoId}_${invitadoId}_p${i}`,
+        asiento: formatSeat(seat),
+        asientoDetalle: seat,
         escaneado: false,
         fechaEscaneo: null
       });
@@ -149,6 +178,9 @@ export const agregarInvitado = async (eventoId, invitadoData) => {
     nombre: nombre.trim(),
     email: email.trim(),
     numInvitados: numPersonas,
+    tipoAcceso: pmr ? "PMR" : "General",
+    asiento: assignedSeatText,
+    asientoDetalle: assignedSeats[0] || null,
     personas: personasArray,
     fechaRegistro: serverTimestamp(),
     escaneado: false,
@@ -157,8 +189,6 @@ export const agregarInvitado = async (eventoId, invitadoData) => {
 
   await setDoc(invitadoRef, invitadoCompleto);
   
-  const eventoRef = doc(db, "usuarios", userEmail, "eventos", eventoId);
-  const eventoSnap = await getDoc(eventoRef);
   if (eventoSnap.exists()) {
     const currentData = eventoSnap.data();
     await updateDoc(eventoRef, {
@@ -184,6 +214,24 @@ export const marcarEmailEnviado = async (eventoId, invitadoId) => {
     console.error("Error al marcar email:", error);
     return false;
   }
+};
+
+const getNextAvailableSeats = async (userEmail, eventoId, seatSections, count, reservedSeatIds = []) => {
+  const invitadosRef = collection(db, "usuarios", userEmail, "eventos", eventoId, "invitados");
+  const snap = await getDocs(invitadosRef);
+  const occupiedSeatIds = new Set(reservedSeatIds);
+
+  snap.docs.forEach((invitadoDoc) => {
+    const invitado = invitadoDoc.data();
+    if (invitado.asientoDetalle?.id) occupiedSeatIds.add(invitado.asientoDetalle.id);
+    (invitado.personas || []).forEach((persona) => {
+      if (persona.asientoDetalle?.id) occupiedSeatIds.add(persona.asientoDetalle.id);
+    });
+  });
+
+  return getSeatMapFromSections(seatSections)
+    .filter((seat) => !occupiedSeatIds.has(seat.id))
+    .slice(0, count);
 };
 
 export const actualizarAsientoInvitado = async (eventoId, invitadoId, personaIdOrIndex, seatInfo) => {

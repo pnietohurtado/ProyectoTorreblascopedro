@@ -3,213 +3,341 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tu Invitación al Evento</title>
+  <title>Instrucciones y acceso con QR</title>
   <style>
     body {
       margin: 0;
       padding: 0;
-      background-color: #0d0e22;
-      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      color: #ffffff;
+      background: #f2f5fb;
+      color: #172033;
+      font-family: Arial, Helvetica, sans-serif;
       -webkit-font-smoothing: antialiased;
     }
     .wrapper {
       width: 100%;
-      table-layout: fixed;
-      background-color: #0d0e22;
-      padding: 40px 0;
+      background: #f2f5fb;
+      padding: 28px 0;
     }
-    .main-table {
+    .main {
       width: 100%;
-      max-width: 600px;
+      max-width: 680px;
       margin: 0 auto;
-      background-color: #131129;
-      border-radius: 24px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: #ffffff;
+      border-radius: 18px;
       overflow: hidden;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 18px 45px rgba(23, 32, 51, 0.14);
     }
-    .header {
-      background: linear-gradient(135deg, #7738b0 0%, #4a236d 100%);
-      padding: 40px 30px;
-      text-align: center;
+    .hero-image {
+      display: block;
+      width: 100%;
+      height: auto;
+      border: 0;
     }
-    .logo-text {
-      font-size: 28px;
-      font-weight: 900;
-      letter-spacing: 2px;
-      color: #ffffff;
-      margin: 0;
-      text-transform: uppercase;
+    .brand-strip {
+      background: #101828;
+      padding: 18px 28px;
+      text-align: right;
     }
-    .logo-sub {
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.7);
-      margin-top: 5px;
-      letter-spacing: 3px;
-      text-transform: uppercase;
+    .qntrol-logo {
+      display: inline-block;
+      max-width: 82px;
+      height: auto;
+      vertical-align: middle;
     }
     .content {
-      padding: 40px 35px 30px 35px;
+      padding: 34px 34px 20px;
     }
-    .greeting {
-      font-size: 22px;
-      font-weight: 700;
-      color: #ffffff;
-      margin-top: 0;
-      margin-bottom: 15px;
+    .eyebrow {
+      margin: 0 0 10px;
+      color: #0d3fb2;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
     }
-    .intro-text {
-      font-size: 16px;
-      line-height: 1.6;
-      color: #b3b0d6;
-      margin-bottom: 30px;
+    h1 {
+      margin: 0 0 20px;
+      color: #0d3fb2;
+      font-size: 28px;
+      line-height: 1.18;
+      font-weight: 900;
+    }
+    h2 {
+      margin: 30px 0 12px;
+      color: #0d3fb2;
+      font-size: 19px;
+      line-height: 1.3;
+      font-weight: 900;
+    }
+    p {
+      margin: 0 0 15px;
+      color: #30384a;
+      font-size: 15px;
+      line-height: 1.62;
+    }
+    ul, ol {
+      margin: 0 0 18px 22px;
+      padding: 0;
+      color: #30384a;
+      font-size: 15px;
+      line-height: 1.62;
+    }
+    li {
+      margin: 0 0 9px;
+    }
+    .notice {
+      margin: 24px 0;
+      padding: 20px;
+      background: #eef4ff;
+      border-left: 5px solid #0d3fb2;
+      border-radius: 14px;
     }
     .event-card {
-      background-color: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(119, 56, 176, 0.2);
+      margin: 24px 0;
+      padding: 26px;
+      background: #101828;
       border-radius: 16px;
-      padding: 25px;
-      margin-bottom: 35px;
+      color: #ffffff;
     }
     .event-title {
-      font-size: 20px;
-      font-weight: 800;
-      color: #b673f5;
-      margin-top: 0;
-      margin-bottom: 20px;
-      letter-spacing: 0.5px;
+      margin: 0 0 22px;
+      color: #ffffff;
+      font-size: 24px;
+      line-height: 1.25;
+      font-weight: 900;
     }
     .detail-row {
-      margin-bottom: 12px;
-      font-size: 15px;
-    }
-    .detail-row:last-child {
-      margin-bottom: 0;
+      margin-top: 18px;
     }
     .detail-label {
-      color: rgba(255, 255, 255, 0.4);
-      font-weight: 600;
-      text-transform: uppercase;
-      font-size: 11px;
-      letter-spacing: 1px;
       display: block;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
+      color: #9fb5f5;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
     }
     .detail-value {
       color: #ffffff;
-      font-weight: 500;
+      font-size: 19px;
+      font-weight: 700;
+      line-height: 1.45;
     }
     .qr-section {
+      margin: 28px 0;
+      padding: 24px 20px;
       text-align: center;
-      padding: 30px 20px;
-      background-color: rgba(119, 56, 176, 0.05);
-      border-radius: 16px;
-      border: 1px dashed rgba(119, 56, 176, 0.3);
-      margin-bottom: 30px;
+      background: #f7f9ff;
+      border: 2px dashed #b8c8f5;
+      border-radius: 18px;
     }
     .qr-title {
-      font-size: 15px;
-      font-weight: 700;
-      color: #b673f5;
-      margin-top: 0;
-      margin-bottom: 10px;
+      margin: 0 0 8px;
+      color: #0d3fb2;
+      font-size: 18px;
+      font-weight: 900;
     }
     .qr-subtitle {
-      font-size: 13px;
-      color: #b3b0d6;
-      margin-bottom: 20px;
+      margin: 0 0 20px;
+      color: #526071;
+      font-size: 14px;
     }
-    .qr-container {
+    .qr-box {
       display: inline-block;
-      padding: 15px;
-      background-color: #ffffff;
-      border-radius: 12px;
-      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+      padding: 14px;
+      background: #ffffff;
+      border-radius: 14px;
+      box-shadow: 0 10px 22px rgba(23, 32, 51, 0.12);
     }
     .qr-image {
       display: block;
-      width: 200px;
-      height: 200px;
+      width: 210px;
+      height: 210px;
+      border: 0;
+    }
+    .closing {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e9f2;
+    }
+    .signature {
+      margin-top: 22px;
+      color: #0d3fb2;
+      font-size: 14px;
+      line-height: 1.55;
+      font-weight: 800;
+    }
+    .signature-heart {
+      color: #0d3fb2;
+      font-size: 16px;
+    }
+    .social-strip {
+      background: #0d3fb2;
+      padding: 18px 20px;
+      text-align: center;
+    }
+    .social-icon {
+      display: block;
+      width: 35px;
+      height: 35px;
+      border: 0;
+      margin: 0;
+      outline: none;
+      text-decoration: none;
     }
     .footer {
-      padding: 30px;
-      text-align: center;
-      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 24px 34px 30px;
+      background: #f7f9ff;
+      color: #687386;
       font-size: 12px;
-      color: rgba(255, 255, 255, 0.3);
+      line-height: 1.6;
+      text-align: center;
     }
-    .footer a {
-      color: #b673f5;
-      text-decoration: none;
+    @media only screen and (max-width: 640px) {
+      .wrapper {
+        padding: 0;
+      }
+      .main {
+        border-radius: 0;
+      }
+      .content {
+        padding: 26px 20px 18px;
+      }
+      h1 {
+        font-size: 24px;
+      }
+      .brand-strip {
+        padding: 16px 20px;
+      }
     }
   </style>
 </head>
 <body>
   <div class="wrapper">
-    <table class="main-table" cellpadding="0" cellspacing="0" border="0">
-      <!-- HEADER -->
-      <tr>
-        <td class="header">
-          <h1 class="logo-text">QNTROL</h1>
-          <div class="logo-sub">Torreblascopedro</div>
-        </td>
-      </tr>
-      
-      <!-- CONTENT -->
-      <tr>
-        <td class="content">
-          <p class="greeting">¡Hola, {{ guest_name }}!</p>
-          <p class="intro-text">
-            Tenemos el placer de invitarte al próximo evento gestionado a través de nuestra plataforma. A continuación encontrarás todos los detalles del evento y tu pase de acceso personal.
-          </p>
-          
-          <!-- EVENT CARD -->
-          <div class="event-card">
-            <h3 class="event-title">{{ event_name }}</h3>
-            
-            <div class="detail-row">
-              <span class="detail-label">Fecha</span>
-              <span class="detail-value">{{ event_date }}</span>
-            </div>
-            
-            <div class="detail-row" style="margin-top: 15px;">
-              <span class="detail-label">Hora</span>
-              <span class="detail-value">{{ event_time }}h</span>
-            </div>
-            
-            <div class="detail-row" style="margin-top: 15px;">
-              <span class="detail-label">Lugar / Dirección</span>
-              <span class="detail-value">{{ event_address }}</span>
-            </div>
-            
-            <div class="detail-row" style="margin-top: 15px;">
-              <span class="detail-label">Asiento / Pase</span>
-              <span class="detail-value" style="color: #b673f5; font-weight: 700;">{{ guest_seat }}</span>
-            </div>
+    <div class="main">
+      <img src="cid:{{ hero_cid }}" alt="Acto de Graduación" class="hero-image">
+
+      <div class="brand-strip">
+        <img src="cid:{{ qntrol_logo_cid }}" alt="Qntrol" class="qntrol-logo">
+      </div>
+
+      <div class="content">
+        <p class="eyebrow">Instrucciones, horarios y acceso con QR</p>
+        <h1>🎓 ¡Importante! Información para {{ event_name }}</h1>
+
+        <p>Hola, {{ guest_name }} 👋:</p>
+        <p>Se acerca el día de vuestra graduación y estamos ultimando todos los detalles para que sea una ceremonia inolvidable. Por favor, <strong>leed atentamente este correo hasta el final</strong>, ya que contiene las <strong>normas de acceso y la organización del evento</strong> que debéis cumplir estrictamente.</p>
+
+        <div class="event-card">
+          <p class="event-title">{{ event_name }}</p>
+          <div class="detail-row">
+            <span class="detail-label">Fecha</span>
+            <span class="detail-value">{{ event_date }}</span>
           </div>
-          
-          <!-- QR PASS CODE -->
-          <div class="qr-section">
-            <h4 class="qr-title">Pase de Acceso Exclusivo</h4>
-            <p class="qr-subtitle">Presenta este código QR en la entrada del evento para validar tu asistencia de forma rápida.</p>
-            
-            <div class="qr-container">
-              <!-- Enlace a la imagen embebida vía Content-ID (CID) -->
-              <img src="cid:{{ qr_cid }}" alt="Código de Invitación QR" class="qr-image">
-            </div>
+          <div class="detail-row">
+            <span class="detail-label">Hora</span>
+            <span class="detail-value">{{ event_time }}h</span>
           </div>
-        </td>
-      </tr>
-      
-      <!-- FOOTER -->
-      <tr>
-        <td class="footer">
-          Este correo ha sido enviado automáticamente por el sistema de eventos de <strong>Qntrol Torreblascopedro</strong>.<br>
-          Por favor, no respondas a este mensaje.
-        </td>
-      </tr>
-    </table>
+          <div class="detail-row">
+            <span class="detail-label">Lugar</span>
+            <span class="detail-value">{{ event_address }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Asiento / pase</span>
+            <span class="detail-value">{{ guest_seat }}</span>
+          </div>
+        </div>
+
+        <h2>📍 Lugar y aparcamiento</h2>
+        <p>El acto tendrá lugar en <strong>{{ event_address }}</strong>. Os recordamos que el teatro dispone de <strong>parking</strong>, cuyo coste correrá a cargo de cada asistente.</p>
+
+        <h2>🎟️ Acceso con entradas (código QR)</h2>
+        <ul>
+          <li>Cada alumno dispondrá de <strong>2 entradas</strong> para sus acompañantes.</li>
+          <li>Las entradas funcionan con un <strong>sistema de código QR</strong>. Una vez que el QR se escanea en la puerta, <strong>queda automáticamente invalidado</strong>, por lo que no podrá volver a utilizarse.</li>
+          <li>Los invitados pueden llevar el <strong>QR impreso o en el teléfono móvil</strong> para que el personal del teatro pueda escanearlo en el acceso.</li>
+        </ul>
+
+        <div class="qr-section">
+          <p class="qr-title">🔐 Tu código QR de acceso</p>
+	          <p class="qr-subtitle">Presenta este código en la entrada del evento para <strong>validar tu asistencia</strong>.</p>
+          <div class="qr-box">
+            <img src="cid:{{ qr_cid }}" alt="Código QR de acceso" class="qr-image">
+          </div>
+        </div>
+
+        <h2>⏰ Horarios y puntualidad</h2>
+        <div class="notice">
+          <p><strong>Se ruega máxima puntualidad.</strong></p>
+          <ul>
+            <li><strong>18:00 h - Acceso de invitados:</strong> las puertas se abrirán para que los acompañantes comiencen a acomodarse en el patio de butacas.</li>
+            <li><strong>19:00 h - Acceso de alumnos:</strong> una vez que los invitados estén ubicados, los alumnos comenzaréis a entrar al teatro.</li>
+            <li><strong>Duración:</strong> el evento tendrá una duración aproximada de 2 horas.</li>
+          </ul>
+        </div>
+
+        <h2>🧑‍🎓 Organización de los alumnos a la entrada</h2>
+        <p>Para que la entrada al patio de butacas sea fluida, debéis seguir estos pasos en cuanto accedáis al recinto:</p>
+        <ol>
+          <li>Dirigiros hacia los <strong>carteles indicadores</strong> donde veréis el nombre de vuestra titulación.</li>
+          <li>Formad una fila en <strong>estricto orden alfabético</strong>.</li>
+          <li>Varios profesores os acompañarán en este momento para guiaros y ayudaros a acceder de forma ordenada a vuestros <strong>asientos correspondientes</strong>.</li>
+        </ol>
+
+        <h2>☀️ Recomendación importante</h2>
+        <p>Dadas las fechas en las que nos encontramos y las temperaturas actuales, os recomendamos encarecidamente que tanto vosotros como vuestros invitados traigáis una <strong>botella de agua</strong> para manteneros hidratados durante la jornada.</p>
+
+        <div class="closing">
+          <p>Estamos muy orgullosos de vuestro recorrido y deseando celebrar con vosotros este gran final de etapa. Si tenéis cualquier duda, podéis localizar al equipo organizador en la <strong>secretaría de cada centro</strong>.</p>
+          <p><strong>¡Nos vemos muy pronto!</strong></p>
+          <p>Un afectuoso saludo,</p>
+          <p class="signature">Tu equipo de Davante MEDAC <span class="signature-heart">♥</span></p>
+        </div>
+      </div>
+
+      <div class="social-strip">
+        <table role="presentation" align="center" border="0" cellpadding="0" cellspacing="0" style="border:0;border-collapse:collapse;margin:0 auto;">
+          <tr>
+            <td align="center" style="border:0;padding:0 7px;">
+              <a href="https://dzlyci-zcmp.maillist-manage.eu/click/130490e656097bdf/130490e655f7a449" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;">
+                <img src="https://stratus.campaign-image.eu/images/217458000970459243_2_1778594840940_217458000953935860.png" alt="Facebook" width="35" height="35" class="social-icon">
+              </a>
+            </td>
+            <td align="center" style="border:0;padding:0 7px;">
+              <a href="https://dzlyci-zcmp.maillist-manage.eu/click/130490e656097bdf/130490e655f7a44a" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;">
+                <img src="https://stratus.campaign-image.eu/images/217458000970459243_3_1778594841034_217458000953935860.png" alt="Instagram" width="35" height="35" class="social-icon">
+              </a>
+            </td>
+            <td align="center" style="border:0;padding:0 7px;">
+              <a href="https://dzlyci-zcmp.maillist-manage.eu/click/130490e656097bdf/130490e655f7a44b" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;">
+                <img src="https://stratus.campaign-image.eu/images/217458000970459243_4_1778594841090_217458000953935860.png" alt="LinkedIn" width="35" height="35" class="social-icon">
+              </a>
+            </td>
+            <td align="center" style="border:0;padding:0 7px;">
+              <a href="https://dzlyci-zcmp.maillist-manage.eu/click/130490e656097bdf/130490e655f7a44c" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;">
+                <img src="https://stratus.campaign-image.eu/images/217458000970459243_5_1778594841158_217458000953935860.png" alt="X" width="35" height="35" class="social-icon">
+              </a>
+            </td>
+            <td align="center" style="border:0;padding:0 7px;">
+              <a href="https://dzlyci-zcmp.maillist-manage.eu/click/130490e656097bdf/130490e655f7a44d" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;">
+                <img src="https://stratus.campaign-image.eu/images/217458000970459243_6_1778594841240_217458000953935860.png" alt="YouTube" width="35" height="35" class="social-icon">
+              </a>
+            </td>
+            <td align="center" style="border:0;padding:0 7px;">
+              <a href="https://dzlyci-zcmp.maillist-manage.eu/click/130490e656097bdf/130490e655f7a44e" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;">
+                <img src="https://stratus.campaign-image.eu/images/217458000970459243_7_1778594841308_217458000953935860.png" alt="TikTok" width="35" height="35" class="social-icon">
+              </a>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="footer">
+        Acceso y validación gestionados con Qntrol.<br>
+        Por favor, conserva este correo y no compartas tu código QR.
+      </div>
+    </div>
   </div>
 </body>
 </html>
