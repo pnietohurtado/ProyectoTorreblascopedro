@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
+import AppModal from './AppModal';
 
 const FileUpload = ({ onFileUpload }) => {
   const [dragActive, setDragActive] = useState(false);
   const [fileName, setFileName] = useState('');
+  const [modal, setModal] = useState(null);
   const inputRef = useRef(null);
 
   // Manejar archivos arrastrados
@@ -46,7 +48,7 @@ const FileUpload = ({ onFileUpload }) => {
   const processFile = (file) => {
     // Verificar que sea CSV
     if (!file.name.toLowerCase().endsWith('.csv')) {
-      alert('Por favor sube un archivo CSV');
+      setModal({ title: 'Archivo no válido', body: 'Por favor sube un archivo CSV.' });
       return;
     }
 
@@ -155,6 +157,9 @@ const FileUpload = ({ onFileUpload }) => {
           Quitar archivo
         </button>
       )}
+      <AppModal open={Boolean(modal)} title={modal?.title || ''} confirmLabel="Aceptar" onClose={() => setModal(null)}>
+        <p>{modal?.body}</p>
+      </AppModal>
     </div>
   );
 };

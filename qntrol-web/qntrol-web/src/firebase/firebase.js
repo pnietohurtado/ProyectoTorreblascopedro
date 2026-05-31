@@ -9,10 +9,18 @@ import {
   getDoc,
   getDocs,
   updateDoc,
-  serverTimestamp,
-  arrayUnion
+  deleteDoc,
+  serverTimestamp
 } from "firebase/firestore";
-
+import {
+  INFANTA_LEONOR_SECTIONS,
+  THEATER_TOTAL_CAPACITY,
+  formatSeat,
+  getAccessTypeFromRow,
+  getPmrSeat,
+  getSeatMapFromSections,
+  isPmrAccess
+} from "../utils/theaterSeating";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCmS7u3iX8cJuTZzQu8XHQXu4yqHkchH-s",
@@ -29,43 +37,28 @@ const analytics = getAnalytics(app);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-
-
+// --- HELPERS DE USUARIO ---
 export const getCurrentUser = () => auth.currentUser;
 export const getUserEmail = () => auth.currentUser ? auth.currentUser.email : null;
 export const getUid = () => auth.currentUser ? auth.currentUser.uid : null;
 
-
-// Obtener datos del usuario
 export const getUserData = async () => {
   const user = getCurrentUser();
   if (!user) return null;
-
   const userRef = doc(db, "usuarios", user.email);
   const userSnap = await getDoc(userRef);
-
-  if (userSnap.exists()) {
-    return userSnap.data();
-  }
-  return null;
+  return userSnap.exists() ? userSnap.data() : null;
 };
 
-// Obtener todos los eventos del usuario
-export const getEventosUsuario = async (emailParam = null) => {
-  // Usar el email pasado por parámetro o intentar obtener el del usuario actual
-  const email = emailParam || getUserEmail();
+// --- GESTIÓN DE EVENTOS ---
 
-  if (!email) {
-    console.warn("getEventosUsuario: No hay Email disponible");
-    return null;
-  }
+export const getEventosUsuario = async (emailParam = null) => {
+  const email = emailParam || getUserEmail();
+  if (!email) return null;
 
   try {
     const eventosRef = collection(db, "usuarios", email, "eventos");
-    console.log("Fetching events from:", eventosRef.path);
     const eventosSnap = await getDocs(eventosRef);
-    console.log("Documents found:", eventosSnap.size);
-
     const eventos = [];
 
     for (const eventoDoc of eventosSnap.docs) {
@@ -75,13 +68,9 @@ export const getEventosUsuario = async (emailParam = null) => {
       eventos.push({
         id: eventoDoc.id,
         ...eventoDoc.data(),
-        invitados: invitadosSnap.docs.map(invitado => ({
-          id: invitado.id,
-          ...invitado.data()
-        }))
+        invitados: invitadosSnap.docs.map(inv => ({ id: inv.id, ...inv.data() }))
       });
     }
-
     return eventos;
   } catch (error) {
     console.error("Error obteniendo eventos:", error);
@@ -89,472 +78,245 @@ export const getEventosUsuario = async (emailParam = null) => {
   }
 };
 
-// Crear nuevo evento
 export const crearEvento = async (eventoData) => {
   const user = getCurrentUser();
-  if (!user) throw new Error("Usuario no autenticado");
+  if (!user || !user.email) throw new Error("Usuario no autenticado");
 
-  const {
-    nombreEvento,
-    direccion,
-    fecha,
-    hora,
-    descripcion = "",
-    capacidadMaxima = 100
+  const { 
+    nombreEvento, direccion, fecha, hora, descripcion = "", capacidadMaxima = THEATER_TOTAL_CAPACITY,
+    seatRows = 10, seatCols = 10, selectedSeats = {}, hiddenSeats = {},
+    seatSections = INFANTA_LEONOR_SECTIONS, reservedSeatsText = "", reservedSeatIds = []
   } = eventoData;
 
-  if (!nombreEvento || !direccion || !fecha || !hora) {
-    throw new Error("Faltan datos obligatorios del evento");
-  }
-
-  const uid = user.uid;
-  const email = user.email;
-
-  if (!email) {
-    throw new Error("El usuario no tiene un email válido para crear el evento.");
-  }
-
-  // Crear/Actualizar documento del usuario
-  const userRef = doc(db, "usuarios", email);
-  await setDoc(
-    userRef,
-    {
-      uid,
-      email,
-      nombre: user.displayName || email,
-      fechaRegistro: serverTimestamp(),
-      ultimoAcceso: serverTimestamp()
-    },
-    { merge: true }
-  );
-
-  // Generar ID único para el evento
-  const eventoId = `${nombreEvento.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-  // Crear documento del evento
-  const eventoRef = doc(db, "usuarios", email, "eventos", eventoId);
+  const eventoId = `${nombreEvento.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}`;
+  const eventoRef = doc(db, "usuarios", user.email, "eventos", eventoId);
 
   const eventoCompleto = {
     id: eventoId,
-    uid,
+    uid: user.uid,
     nombreEvento: nombreEvento.trim(),
     direccion: direccion.trim(),
     fecha,
     hora,
     descripcion: descripcion.trim(),
-    capacidadMaxima: parseInt(capacidadMaxima) || 100,
+    capacidadMaxima: parseInt(capacidadMaxima) || THEATER_TOTAL_CAPACITY,
     fechaCreacion: serverTimestamp(),
     estado: "activo",
+    personasEscaneadas: 0,
     totalInvitados: 0,
     totalPersonas: 0,
-    personasEscaneadas: 0
+    // Configuración de salón
+    seatRows,
+    seatCols,
+    selectedSeats,
+    hiddenSeats,
+    seatSections,
+    reservedSeatsText,
+    reservedSeatIds,
+    seatingMode: "sections"
   };
 
   await setDoc(eventoRef, eventoCompleto);
-
-  console.log(`✅ Evento creado: ${nombreEvento} (ID: ${eventoId})`);
-
-  return {
-    ...eventoCompleto,
-    eventoId
-  };
+  return { ...eventoCompleto, eventoId };
 };
 
-// Agregar invitado a evento (con array de personas en el mismo documento)
+// --- GESTIÓN DE INVITADOS ---
+
 export const agregarInvitado = async (eventoId, invitadoData) => {
-  const user = getCurrentUser();
   const userEmail = getUserEmail();
-  if (!userEmail) throw new Error("Usuario no autenticado o sin email");
+  if (!userEmail) throw new Error("Usuario no autenticado");
 
-  const uid = user?.uid;
+  const nombre = invitadoData.nombre || invitadoData.Nombre || invitadoData.name || invitadoData.guest_name || "";
+  const email = invitadoData.email || invitadoData.Email || invitadoData.correo || invitadoData.mail || "";
+  const numInvitados = invitadoData.numInvitados || invitadoData.NumInvitados || invitadoData.invitados || invitadoData.seats || 1;
+  const personas = invitadoData.personas || [];
+  const tipoAcceso = getAccessTypeFromRow(invitadoData);
 
-  const {
-    nombre,
-    email = "",
-    telefono = "",
-    numInvitados = 1,
-    notas = "",
-    personas = []
-  } = invitadoData;
-
-  if (!nombre || !nombre.trim()) {
+  if (!nombre.trim()) {
     throw new Error("El nombre del invitado es obligatorio");
   }
 
-  // Verificar que el evento existe
+  const numPersonas = parseInt(numInvitados) || 1;
+  const invitadoId = `${nombre.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}`;
   const eventoRef = doc(db, "usuarios", userEmail, "eventos", eventoId);
   const eventoSnap = await getDoc(eventoRef);
+  const eventoData = eventoSnap.exists() ? eventoSnap.data() : {};
+  const seatSections = eventoData.seatSections || INFANTA_LEONOR_SECTIONS;
+  const reservedSeatIds = eventoData.reservedSeatIds || [];
+  const pmr = isPmrAccess(tipoAcceso);
+  const assignedSeats = pmr
+    ? Array.from({ length: numPersonas }, () => getPmrSeat(seatSections))
+    : await getNextAvailableSeats(userEmail, eventoId, seatSections, numPersonas, reservedSeatIds);
+  const assignedSeatText = pmr
+    ? formatSeat(assignedSeats[0])
+    : assignedSeats.map(formatSeat).join(" / ");
 
-  if (!eventoSnap.exists()) {
-    throw new Error("El evento no existe");
+  if (!pmr && assignedSeats.length < numPersonas) {
+    throw new Error("No quedan asientos disponibles para asignar a todos los invitados.");
   }
 
-  const eventoData = eventoSnap.data();
-
-  // Generar ID único para el invitado
-  const invitadoId = `${nombre.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-
-  // Preparar el array de personas
-  let personasArray = [];
-  const numPersonas = parseInt(numInvitados) || 1;
-
-  // Si ya vienen personas definidas, usarlas
-  if (personas && personas.length > 0) {
-    personasArray = personas.map((persona, index) => ({
-      id: `persona_${Date.now()}_${index}`,
-      nombre: persona.nombre || (index === 0 ? nombre : `${nombre} - Acompañante ${index}`),
-      email: persona.email || (index === 0 ? email : ""),
-      telefono: persona.telefono || (index === 0 ? telefono : ""),
-      qrCode: persona.qrCode || `${eventoId}_${invitadoId}_persona_${index}_${Date.now()}`,
-      escaneado: persona.escaneado || false,
-      fechaEscaneo: persona.fechaEscaneo || null,
-      notas: persona.notas || (index === 0 ? "Persona principal" : `Acompañante ${index}`)
-    }));
-  } else {
-    // Crear personas basadas en numInvitados
+  let personasArray = personas.length > 0 ? personas : [];
+  if (personasArray.length === 0) {
     for (let i = 0; i < numPersonas; i++) {
-      const esPrincipal = i === 0;
+      const seat = assignedSeats[i] || null;
       personasArray.push({
         id: `persona_${Date.now()}_${i}`,
-        nombre: esPrincipal ? nombre.trim() : `${nombre.trim()} - Acompañante ${i}`,
-        email: esPrincipal ? email.trim() : "",
-        telefono: esPrincipal ? telefono.trim() : "",
-        qrCode: `${eventoId}_${invitadoId}_persona_${i}_${Date.now()}`,
+        nombre: i === 0 ? nombre.trim() : `${nombre.trim()} - Acompañante ${i}`,
+        email: i === 0 ? email.trim() : "",
+        qrCode: `${eventoId}_${invitadoId}_p${i}`,
+        asiento: formatSeat(seat),
+        asientoDetalle: seat,
         escaneado: false,
-        fechaEscaneo: null,
-        notas: esPrincipal ? "Persona principal" : `Acompañante ${i}`
+        fechaEscaneo: null
       });
     }
   }
 
-  // Crear documento del invitado con array de personas
   const invitadoRef = doc(db, "usuarios", userEmail, "eventos", eventoId, "invitados", invitadoId);
-
   const invitadoCompleto = {
     id: invitadoId,
-    eventoId,
-    uid,
     nombre: nombre.trim(),
     email: email.trim(),
-    telefono: telefono.trim(),
     numInvitados: numPersonas,
-    notas: notas.trim(),
-    personas: personasArray, // Array de personas en el mismo documento
+    tipoAcceso: pmr ? "PMR" : "General",
+    asiento: assignedSeatText,
+    asientoDetalle: assignedSeats[0] || null,
+    personas: personasArray,
     fechaRegistro: serverTimestamp(),
-    escaneado: false, // Indica si TODAS las personas han sido escaneadas
-    personasEscaneadas: 0 // Contador de personas escaneadas
+    escaneado: false,
+    emailEnviado: invitadoData.emailEnviado || false
   };
 
   await setDoc(invitadoRef, invitadoCompleto);
+  
+  if (eventoSnap.exists()) {
+    const currentData = eventoSnap.data();
+    await updateDoc(eventoRef, {
+      totalInvitados: (currentData.totalInvitados || 0) + 1,
+      totalPersonas: (currentData.totalPersonas || 0) + numPersonas
+    });
+  }
 
-  // Actualizar contadores del evento
-  await updateDoc(eventoRef, {
-    totalInvitados: (eventoData.totalInvitados || 0) + 1,
-    totalPersonas: (eventoData.totalPersonas || 0) + numPersonas,
-    ultimaActualizacion: serverTimestamp()
-  });
-
-  console.log(`✅ Invitado creado: ${nombre} con ${numPersonas} personas`);
-
-  return {
-    ...invitadoCompleto,
-    invitadoId
-  };
+  return invitadoCompleto;
 };
 
-// Escanear una persona específica dentro de un invitado
-export const escanearPersona = async (eventoId, invitadoId, personaId) => {
+export const marcarEmailEnviado = async (eventoId, invitadoId) => {
   const email = getUserEmail();
-  if (!email) throw new Error("Usuario no autenticado o sin email");
-
-  const invitadoRef = doc(db, "usuarios", email, "eventos", eventoId, "invitados", invitadoId);
-  const eventoRef = doc(db, "usuarios", email, "eventos", eventoId);
-
-  const invitadoSnap = await getDoc(invitadoRef);
-  if (!invitadoSnap.exists()) {
-    throw new Error("Invitado no encontrado");
+  if (!email) return false;
+  try {
+    const invitadoRef = doc(db, "usuarios", email, "eventos", eventoId, "invitados", invitadoId);
+    await updateDoc(invitadoRef, {
+      emailEnviado: true,
+      fechaEnvioEmail: serverTimestamp()
+    });
+    return true;
+  } catch (error) {
+    console.error("Error al marcar email:", error);
+    return false;
   }
-
-  const invitadoData = invitadoSnap.data();
-  const eventoSnap = await getDoc(eventoRef);
-  const eventoData = eventoSnap.data();
-
-  // Buscar la persona en el array
-  const personas = invitadoData.personas || [];
-  const personaIndex = personas.findIndex(p => p.id === personaId);
-
-  if (personaIndex === -1) {
-    throw new Error("Persona no encontrada");
-  }
-
-  if (personas[personaIndex].escaneado) {
-    throw new Error("Esta persona ya fue escaneada anteriormente");
-  }
-
-  // Actualizar la persona específica en el array
-  const personaActualizada = {
-    ...personas[personaIndex],
-    escaneado: true,
-    fechaEscaneo: serverTimestamp()
-  };
-
-  // Crear nuevo array con la persona actualizada
-  const nuevasPersonas = [...personas];
-  nuevasPersonas[personaIndex] = personaActualizada;
-
-  // Contar cuántas personas están escaneadas ahora
-  const personasEscaneadas = nuevasPersonas.filter(p => p.escaneado).length;
-  const todasEscaneadas = personasEscaneadas === nuevasPersonas.length;
-
-  // Actualizar el documento del invitado
-  await updateDoc(invitadoRef, {
-    personas: nuevasPersonas,
-    personasEscaneadas,
-    escaneado: todasEscaneadas,
-    ultimaActualizacion: serverTimestamp()
-  });
-
-  // Actualizar contadores del evento
-  await updateDoc(eventoRef, {
-    personasEscaneadas: (eventoData.personasEscaneadas || 0) + 1,
-    ultimaActualizacion: serverTimestamp()
-  });
-
-  console.log(`✅ Persona escaneada: ${personaActualizada.nombre}`);
-
-  return {
-    persona: personaActualizada,
-    invitado: {
-      ...invitadoData,
-      personas: nuevasPersonas,
-      personasEscaneadas,
-      escaneado: todasEscaneadas
-    }
-  };
 };
 
-// Escanear todas las personas de un invitado
-export const escanearTodasPersonas = async (eventoId, invitadoId) => {
+const getNextAvailableSeats = async (userEmail, eventoId, seatSections, count, reservedSeatIds = []) => {
+  const invitadosRef = collection(db, "usuarios", userEmail, "eventos", eventoId, "invitados");
+  const snap = await getDocs(invitadosRef);
+  const occupiedSeatIds = new Set(reservedSeatIds);
+
+  snap.docs.forEach((invitadoDoc) => {
+    const invitado = invitadoDoc.data();
+    if (invitado.asientoDetalle?.id) occupiedSeatIds.add(invitado.asientoDetalle.id);
+    (invitado.personas || []).forEach((persona) => {
+      if (persona.asientoDetalle?.id) occupiedSeatIds.add(persona.asientoDetalle.id);
+    });
+  });
+
+  return getSeatMapFromSections(seatSections)
+    .filter((seat) => !occupiedSeatIds.has(seat.id))
+    .slice(0, count);
+};
+
+export const actualizarAsientoInvitado = async (eventoId, invitadoId, personaIdOrIndex, seatInfo) => {
   const email = getUserEmail();
-  if (!email) throw new Error("Usuario no autenticado o sin email");
-
-  const invitadoRef = doc(db, "usuarios", email, "eventos", eventoId, "invitados", invitadoId);
-  const eventoRef = doc(db, "usuarios", email, "eventos", eventoId);
-
-  const invitadoSnap = await getDoc(invitadoRef);
-  if (!invitadoSnap.exists()) {
-    throw new Error("Invitado no encontrado");
+  if (!email) return false;
+  try {
+    const invitadoRef = doc(db, "usuarios", email, "eventos", eventoId, "invitados", invitadoId);
+    const invitadoSnap = await getDoc(invitadoRef);
+    if (!invitadoSnap.exists()) return false;
+    
+    const data = invitadoSnap.data();
+    const personas = data.personas || [];
+    const nuevasPersonas = personas.map((p, index) => {
+      const isMatch = p.id === personaIdOrIndex || index === personaIdOrIndex || (index === 0 && personaIdOrIndex === 'principal');
+      return isMatch ? { ...p, asiento: seatInfo } : p;
+    });
+    
+    const updateData = { personas: nuevasPersonas, ultimaActualizacionAsiento: serverTimestamp() };
+    if (personaIdOrIndex === 'principal' || personaIdOrIndex === 0) updateData.asiento = seatInfo;
+    
+    await updateDoc(invitadoRef, updateData);
+    return true;
+  } catch (error) {
+    return false;
   }
-
-  const invitadoData = invitadoSnap.data();
-
-  if (invitadoData.escaneado) {
-    throw new Error("Este invitado ya fue escaneado completamente");
-  }
-
-  const eventoSnap = await getDoc(eventoRef);
-  const eventoData = eventoSnap.data();
-
-  // Actualizar todas las personas en el array
-  const personasActualizadas = (invitadoData.personas || []).map(persona => ({
-    ...persona,
-    escaneado: true,
-    fechaEscaneo: persona.escaneado ? persona.fechaEscaneo : serverTimestamp()
-  }));
-
-  // Contar cuántas se escanearon ahora
-  const nuevasEscaneadas = personasActualizadas.filter(p => !p.escaneado).length;
-  const totalPersonas = personasActualizadas.length;
-
-  // Actualizar el documento del invitado
-  await updateDoc(invitadoRef, {
-    personas: personasActualizadas,
-    personasEscaneadas: totalPersonas,
-    escaneado: true,
-    ultimaActualizacion: serverTimestamp()
-  });
-
-  // Actualizar contadores del evento
-  await updateDoc(eventoRef, {
-    personasEscaneadas: (eventoData.personasEscaneadas || 0) + nuevasEscaneadas,
-    ultimaActualizacion: serverTimestamp()
-  });
-
-  console.log(`✅ Todas las personas escaneadas: ${invitadoData.nombre}`);
-
-  return {
-    ...invitadoData,
-    personas: personasActualizadas,
-    personasEscaneadas: totalPersonas,
-    escaneado: true
-  };
 };
 
-// Carga masiva de invitados desde CSV
 export const cargarInvitadosCSV = async (eventoId, datosCSV) => {
   const email = getUserEmail();
-  if (!email) throw new Error("Usuario no autenticado o sin email");
+  if (!email) throw new Error("No autenticado");
+  const invitadosActuales = await getInvitadosByEvento(eventoId);
+  const emailsExistentes = new Set(invitadosActuales.map(i => i.email?.toLowerCase().trim()).filter(e => e));
 
-  const eventoRef = doc(db, "usuarios", email, "eventos", eventoId);
-  const eventoSnap = await getDoc(eventoRef);
-
-  if (!eventoSnap.exists()) {
-    throw new Error("El evento no existe");
-  }
-
-  let exitosos = 0;
-  let fallidos = 0;
-  const errores = [];
-
-  for (let i = 0; i < datosCSV.length; i++) {
-    try {
-      const dato = datosCSV[i];
-      const numInvitados = parseInt(dato.numInvitados || dato.invitados || 1);
-
-      // Preparar el array de personas
-      const personas = [];
-
-      // Crear personas basadas en numInvitados
-      for (let j = 0; j < numInvitados; j++) {
-        const esPrincipal = j === 0;
-        personas.push({
-          nombre: esPrincipal ? (dato.Nombre || dato.nombre) : `${dato.Nombre || dato.nombre} - Acompañante ${j}`,
-          email: esPrincipal ? (dato.Email || dato.email || "") : "",
-          telefono: esPrincipal ? (dato.Telefono || dato.telefono || "") : "",
-          escaneado: dato.Escaneo === "true" || false,
-          notas: esPrincipal ? "Persona principal" : `Acompañante ${j}`
-        });
-      }
-
-      // Crear invitado con array de personas
-      await agregarInvitado(eventoId, {
-        nombre: dato.Nombre || dato.nombre || `Invitado ${i + 1}`,
-        email: dato.Email || dato.email || "",
-        telefono: dato.Telefono || dato.telefono || "",
-        numInvitados: numInvitados,
-        notas: "Importado desde CSV",
-        personas: personas
-      });
-
-      exitosos++;
-
-    } catch (error) {
-      errores.push({ fila: i + 1, error: error.message, datos: datosCSV[i] });
-      fallidos++;
+  let exitosos = 0; let duplicados = 0;
+  for (const dato of datosCSV) {
+    const emailInvitado = (dato.Email || dato.email || dato.Correo || dato.correo || dato.mail || "").toLowerCase().trim();
+    if (emailInvitado && emailsExistentes.has(emailInvitado)) {
+      duplicados++;
+      continue;
     }
-
-    // Pequeña pausa para no sobrecargar Firebase
-    if (i % 5 === 0) {
-      await new Promise(r => setTimeout(r, 300));
-    }
+    await agregarInvitado(eventoId, dato);
+    exitosos++;
+    if (emailInvitado) emailsExistentes.add(emailInvitado);
   }
-
-  return { exitosos, fallidos, errores };
+  return { exitosos, duplicados };
 };
 
-// Obtener invitados por evento
 export const getInvitadosByEvento = async (eventoId) => {
   const email = getUserEmail();
-  if (!email) return null;
-
-  try {
-    const invitadosRef = collection(db, "usuarios", email, "eventos", eventoId, "invitados");
-    const invitadosSnap = await getDocs(invitadosRef);
-
-    return invitadosSnap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-  } catch (error) {
-    console.error("Error obteniendo invitados:", error);
-    return [];
-  }
+  if (!email) return [];
+  const invitadosRef = collection(db, "usuarios", email, "eventos", eventoId, "invitados");
+  const snap = await getDocs(invitadosRef);
+  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
-// Obtener estadísticas de evento
-export const getEstadisticasEvento = async (eventoId) => {
-  const email = getUserEmail();
-  if (!email) return null;
-
-  const eventoRef = doc(db, "usuarios", email, "eventos", eventoId);
-  const eventoSnap = await getDoc(eventoRef);
-
-  if (!eventoSnap.exists()) {
-    return null;
-  }
-
-  const eventoData = eventoSnap.data();
-  const invitados = await getInvitadosByEvento(eventoId);
-
-  const totalInvitados = invitados.length;
-  const invitadosCompletos = invitados.filter(i => i.escaneado).length;
-
-  let totalPersonas = 0;
-  let personasEscaneadas = 0;
-
-  invitados.forEach(invitado => {
-    totalPersonas += invitado.numInvitados || 1;
-    personasEscaneadas += invitado.personasEscaneadas || 0;
-  });
-
-  return {
-    ...eventoData,
-    totalInvitados,
-    invitadosCompletos,
-    totalPersonas,
-    personasEscaneadas,
-    porcentajeAsistenciaInvitados: totalInvitados > 0 ? (invitadosCompletos / totalInvitados * 100).toFixed(2) : 0,
-    porcentajeAsistenciaPersonas: totalPersonas > 0 ? (personasEscaneadas / totalPersonas * 100).toFixed(2) : 0
-  };
-};
-
-// Función para compatibilidad
-export const getAlumnoData = async () => {
-  const eventos = await getEventosUsuario();
-  return eventos || [];
-};
-
-export const sendAlumnoData = async (eventoId, alumnoData) => {
-  return await agregarInvitado(eventoId, {
-    nombre: alumnoData.Nombre || alumnoData.nombre,
-    email: alumnoData.Email || alumnoData.email || "",
-    telefono: alumnoData.Telefono || alumnoData.telefono || "",
-    numInvitados: parseInt(alumnoData.numInvitados || 1),
-    notas: "Importado desde CSV"
-  });
-};
-
-// Función para obtener QR de una persona específica
-
-
-// Actualizar evento existente
 export const actualizarEvento = async (eventoId, datosActualizados) => {
   const email = getUserEmail();
-  if (!email) throw new Error("Usuario no autenticado o sin email");
-
+  if (!email) throw new Error("No autenticado");
   const eventoRef = doc(db, "usuarios", email, "eventos", eventoId);
+  
+  // Limpieza para no enviar campos undefined
+  const cleanData = {};
+  Object.keys(datosActualizados).forEach(key => {
+    if (datosActualizados[key] !== undefined) cleanData[key] = datosActualizados[key];
+  });
+  cleanData.ultimaActualizacion = serverTimestamp();
 
-  // Filtrar campos undefined o null que no queramos borrar por accidente
-  const datosLimpios = {};
-  if (datosActualizados.nombreEvento) datosLimpios.nombreEvento = datosActualizados.nombreEvento;
-  if (datosActualizados.direccion) datosLimpios.direccion = datosActualizados.direccion;
-  if (datosActualizados.fecha) datosLimpios.fecha = datosActualizados.fecha;
-  if (datosActualizados.hora) datosLimpios.hora = datosActualizados.hora;
-
-  datosLimpios.ultimaActualizacion = serverTimestamp();
-
-  await updateDoc(eventoRef, datosLimpios);
-  console.log(`✅ Evento actualizado: ${eventoId}`);
+  await updateDoc(eventoRef, cleanData);
   return true;
 };
 
-export const getQRPersona = (eventoId, invitadoId, personaIndex = 0) => {
-  return `${eventoId}_${invitadoId}_persona_${personaIndex}`;
+export const eliminarEvento = async (eventoId) => {
+  const email = getUserEmail();
+  if (!email) throw new Error("No autenticado");
+  try {
+    const eventoRef = doc(db, "usuarios", email, "eventos", eventoId);
+    const invitadosRef = collection(db, "usuarios", email, "eventos", eventoId, "invitados");
+    const invitadosSnap = await getDocs(invitadosRef);
+    const deletes = invitadosSnap.docs.map(d => deleteDoc(d.ref));
+    await Promise.all(deletes);
+    await deleteDoc(eventoRef);
+    return true;
+  } catch (error) {
+    throw error;
+  }
 };
 
-export {
-  app,
-  auth,
-  analytics,
-  db
-};
+export { app, auth, analytics, db };

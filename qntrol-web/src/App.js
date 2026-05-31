@@ -25,9 +25,9 @@ const PrivateRoute = ({ children }) => {
 };
 
 
-const EventListWrapper = ({ events, onEditEvent }) => {
+const EventListWrapper = ({ events, onEditEvent, onDeleteEvent }) => {
   const navigate = useNavigate();
-  return <EventList events={events} onEditEvent={onEditEvent} onCreateClick={() => navigate('/create')} />;
+  return <EventList events={events} onEditEvent={onEditEvent} onDeleteEvent={onDeleteEvent} onCreateClick={() => navigate('/create')} />;
 };
 
 const EventFormWrapper = ({ onAddEvent }) => {
@@ -91,10 +91,11 @@ function AppContent() {
         event.id === updatedEvent.id ? { ...event, ...updatedEvent } : event
       )
     );
+  };
 
-    // Opcional: Recargar desde firebase para asegurar consistencia total
-    // const userEvents = await getEventosUsuario();
-    // if (userEvents) setEvents(userEvents);
+  const handleDeleteEvent = (eventId) => {
+    // Actualizar el estado local eliminando el evento
+    setEvents(prevEvents => prevEvents.filter(event => event.id !== eventId));
   };
 
   return (
@@ -108,7 +109,7 @@ function AppContent() {
         <Route path="/" element={
           <PrivateRoute>
             <Layout>
-              <EventListWrapper events={events} onEditEvent={handleUpdateEvent} />
+              <EventListWrapper events={events} onEditEvent={handleUpdateEvent} onDeleteEvent={handleDeleteEvent} />
             </Layout>
           </PrivateRoute>
         } />

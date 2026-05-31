@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import fondo from '../img/fondo.jpg';
 import logoImg from '../img/LogoQNTROL_3.png';
-import { doSignInWithEmailAndPassword, doSignInWithGoogle } from '../firebase/auth';
+import { doSignInWithEmailAndPassword } from '../firebase/auth';
 import { useAuth } from '../contexts/authContext'; 
 
 const Login = () => {
@@ -27,22 +27,6 @@ const Login = () => {
       console.error('Error en login:', error);
       setError(error.message || 'Error al iniciar sesión. Verifica tus credenciales.');
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const onGoogleSignIn = async (e) => {
-    e.preventDefault();
-    setError('/');
-    setLoading(true);
-    
-    try {
-      await doSignInWithGoogle();
-      console.log('Login con Google exitoso');
-      navigate('/');
-    } catch (error) {
-      console.error('Error en login con Google:', error);
-      setError(error.message || 'Error al iniciar sesión con Google.');
       setLoading(false);
     }
   };
@@ -94,6 +78,8 @@ const Login = () => {
             </p>
 
             <form onSubmit={handleSubmit} style={styles.form}>
+              {error && <div style={styles.errorBox}>{error}</div>}
+
               <div style={styles.fieldContainer}>
                 <label style={styles.fieldLabel}>Email</label>
                 <input
@@ -130,14 +116,14 @@ const Login = () => {
                       Recordarme
                     </label>
                   </div>
-                  <a href="#" style={styles.forgotLink}>
+                  <button type="button" style={styles.forgotLink}>
                     He olvidado mi contraseña
-                  </a>
+                  </button>
                 </div>
               </div>
 
-              <button type="submit" style={styles.submitButton}>
-                Continuar
+              <button type="submit" style={loading ? { ...styles.submitButton, ...styles.disabledButton } : styles.submitButton} disabled={loading}>
+                {loading ? 'Entrando...' : 'Continuar'}
               </button>
             </form>
 
@@ -302,6 +288,17 @@ const styles = {
     marginBottom: '35px'
   },
 
+  errorBox: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    border: '1px solid rgba(248, 113, 113, 0.35)',
+    color: '#FCA5A5',
+    borderRadius: '12px',
+    padding: '12px 14px',
+    fontSize: '13px',
+    fontWeight: '600',
+    marginBottom: '22px'
+  },
+
   fieldLabel: {
     display: 'block',
     fontSize: '15px',
@@ -352,7 +349,11 @@ const styles = {
     fontSize: '15px',
     color: '#973685',
     textDecoration: 'none',
-    fontWeight: '500'
+    fontWeight: '500',
+    border: 'none',
+    background: 'transparent',
+    cursor: 'pointer',
+    padding: 0
   },
 
   submitButton: {
@@ -367,6 +368,11 @@ const styles = {
     cursor: 'pointer',
 
     marginTop: '20px'
+  },
+
+  disabledButton: {
+    opacity: 0.65,
+    cursor: 'not-allowed'
   }
 };
 

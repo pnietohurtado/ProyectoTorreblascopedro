@@ -7,9 +7,10 @@ const TEMPLATE_ID = 'template_czkqqos';
 const PUBLIC_KEY = 'wewgP2tKTSYexpl_f';
 
 /**
- * Genera el código QR en formato Base64 (Data URL)
+ * Genera el código QR en formato Base64
  */
 const getQRBase64 = async (qrText) => {
+  if (!qrText) return '';
   try {
     const options = {
       errorCorrectionLevel: 'H',
@@ -17,31 +18,47 @@ const getQRBase64 = async (qrText) => {
       margin: 2,
       scale: 4,
       width: 250,
-      color: {
-        dark: '#000000',
-        light: '#ffffff'
-      }
+      color: { dark: '#000000', light: '#ffffff' }
     };
     return await QRCode.toDataURL(qrText, options);
   } catch (err) {
-    console.error('Error generando QR Base64:', err);
+    console.error('Error generando QR:', err);
     return '';
   }
 };
 
 /**
- * Envía un correo de invitación con QR a un invitado.
+ * Sustituye variables en el mensaje personalizado
  */
-export const sendEventInvitation = async (eventData, guestData) => {
-  if (!guestData.email) {
-    console.warn(`Sin email para: ${guestData.nombre}`);
-    return;
-  }
+const replaceVariables = (text, eventData, guestData) => {
+  if (!text) return '';
+  return text
+    .replace(/{{nombre_alumno}}/g, guestData.nombre || '')
+    .replace(/{{nombre_evento}}/g, eventData.nombreEvento || eventData.title || '')
+    .replace(/{{fecha_evento}}/g, eventData.fecha || eventData.date || '')
+    .replace(/{{hora_evento}}/g, eventData.hora || '')
+    .replace(/{{nombre_salon}}/g, eventData.direccion || eventData.address || '')
+    .replace(/{{asiento_asignado}}/g, guestData.asiento || 'Sin asiento asignado');
+};
 
+/**
+ * Envía un correo individual
+ */
+export const sendEventInvitation = async (eventData, guestData, customSubject = null, customBody = null) => {
+  if (!guestData.email) return;
+
+  // Prioridad de QR: 1. El asignado directamente, 2. El de la primera persona, 3. El del invitado raíz
   const qrCode = guestData.qrCode || guestData.personas?.[0]?.qrCode || null;
   const qrBase64 = qrCode ? await getQRBase64(qrCode) : '';
 
-  // Variables que el template de EmailJS puede usar
+  const finalSubject = customSubject 
+    ? replaceVariables(customSubject, eventData, guestData) 
+    : `Invitación a ${eventData.nombreEvento || eventData.title || 'Evento'}`;
+    
+  const finalMessage = customBody 
+    ? replaceVariables(customBody, eventData, guestData) 
+    : '';
+
   const templateParams = {
     to_email: guestData.email,
     guest_name: guestData.nombre,
@@ -49,71 +66,46 @@ export const sendEventInvitation = async (eventData, guestData) => {
     event_date: eventData.fecha || eventData.date || '',
     event_time: eventData.hora || '',
     event_address: eventData.direccion || eventData.address || '',
-    // Código QR en base64 → úsala en tu template como:
-    // <img src="{{qr_image_url}}" width="250" height="250" />
     qr_image_url: qrBase64,
     qr_code_text: qrCode || '',
+    guest_seat: guestData.asiento || 'Sin asiento asignado',
+    custom_subject: finalSubject,
+    custom_message: finalMessage,
   };
-
-  console.log(`📧 Enviando a ${guestData.email}`);
-  console.log(`🔗 QR Base64 generado`);
 
   try {
     const response = await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
-    console.log(`✅ Enviado a ${guestData.email}:`, response.status);
     return response;
   } catch (error) {
-    console.error(`❌ Error enviando a ${guestData.email}:`, error);
+    console.error(`Error enviando a ${guestData.email}:`, error);
     throw error;
   }
 };
 
 /**
- * Envía correos a todos los invitados — un email por persona con su QR propio
+ * Envía correos masivos con Lógica de Asientos y Tracking
  */
-export const sendInvitationsToAll = async (eventData, guestList) => {
-  const result = { success: 0, failed: 0, errors: [] };
+export const sendInvitationsToAll = async (eventData, guestList, customSubject = null, customBody = null) => {
+  const response = await fetch('http://127.0.0.1:8000/api/send-emails', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      eventData,
+      guestList,
+      customSubject,
+      customBody,
+    }),
+  }).catch((agentError) => {
+    throw new Error(`El agente local de correos no está disponible: ${agentError.message}`);
+  });
 
-  for (const guest of guestList) {
-    const personas = guest.personas || [];
-    const personasConEmail = personas.filter(p => p.email && p.email.trim() !== '');
-
-    if (personasConEmail.length > 0) {
-      // Cada persona con email recibe su propio QR
-      for (const persona of personasConEmail) {
-        try {
-          await sendEventInvitation(eventData, {
-            nombre: persona.nombre,
-            email: persona.email,
-            qrCode: persona.qrCode,
-          });
-          result.success++;
-        } catch (err) {
-          result.failed++;
-          result.errors.push({ guest: persona.nombre, error: err.message });
-        }
-        await new Promise(r => setTimeout(r, 350));
-      }
-    } else if (guest.email && guest.email.trim() !== '') {
-      // El titular recibe el QR de la primera persona
-      try {
-        await sendEventInvitation(eventData, {
-          nombre: guest.nombre,
-          email: guest.email,
-          qrCode: personas[0]?.qrCode || guest.qrCode,
-        });
-        result.success++;
-      } catch (err) {
-        result.failed++;
-        result.errors.push({ guest: guest.nombre, error: err.message });
-      }
-      await new Promise(r => setTimeout(r, 350));
-    }
+  if (response.ok) {
+    const data = await response.json();
+    return data.result || data;
   }
 
-  if (result.success === 0 && result.failed === 0) {
-    throw new Error('No hay invitados con correo electrónico válido.');
-  }
-
-  return result;
+  const errorData = await response.json().catch(() => ({}));
+  throw new Error(errorData.detail || 'Error en el agente local de correos.');
 };

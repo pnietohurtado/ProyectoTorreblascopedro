@@ -174,9 +174,14 @@ const EventForm = ({ onSave, onCancel }) => {
         estadisticas: {
           totalInvitados: guestList.length,
           exitosos: resultadosCarga.exitosos,
-          fallidos: resultadosCarga.fallidos
+          fallidos: resultadosCarga.fallidos,
+          duplicados: resultadosCarga.duplicados || 0
         }
       };
+
+      if (resultadosCarga.duplicados > 0) {
+        alert(`${resultadosCarga.exitosos} invitados cargados. Se saltaron ${resultadosCarga.duplicados} por ser correos duplicados.`);
+      }
 
       // 4. Notificar al componente padre
       onSave(newEvent);

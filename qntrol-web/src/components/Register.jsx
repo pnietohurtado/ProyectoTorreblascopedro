@@ -5,6 +5,21 @@ import logoImg from '../img/LogoQNTROL_3.png';
 import { doCreateUserWithEmailAndPassword, doSignInWithGoogle } from '../firebase/auth';
 import { useAuth } from '../contexts/authContext';
 
+const allowedEmailDomains = ['@gmail.com', '@qntrol.es'];
+const isAllowedEmailAddress = (value) => {
+  const normalizedEmail = value.trim().toLowerCase();
+  return allowedEmailDomains.some((domain) => normalizedEmail.endsWith(domain));
+};
+const passwordChecks = [
+  { label: 'Mínimo 8 caracteres', test: (value) => value.length >= 8 },
+  { label: 'Una letra mayúscula', test: (value) => /[A-Z]/.test(value) },
+  { label: 'Una letra minúscula', test: (value) => /[a-z]/.test(value) },
+  { label: 'Un número', test: (value) => /\d/.test(value) },
+  { label: 'Un carácter especial', test: (value) => /[^A-Za-z0-9]/.test(value) },
+];
+
+const isStrongPassword = (value) => passwordChecks.every((check) => check.test(value));
+
 const Register = () => {
   const [nombre, setNombre] = useState('');
   const [apellidos, setApellidos] = useState('');
@@ -22,8 +37,14 @@ const Register = () => {
     setSuccessMessage('');
     setLoading(true);
 
-    if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
+    if (!isAllowedEmailAddress(email)) {
+      setError('Solo se permite el registro con cuentas terminadas en @gmail.com o @qntrol.es');
+      setLoading(false);
+      return;
+    }
+
+    if (!isStrongPassword(password)) {
+      setError('La contraseña debe ser fuerte: mínimo 8 caracteres, mayúscula, minúscula, número y carácter especial.');
       setLoading(false);
       return;
     }
@@ -122,6 +143,9 @@ const Register = () => {
             </p>
 
             <form onSubmit={handleSubmit} style={styles.form}>
+              {error && <div style={styles.errorBox}>{error}</div>}
+              {successMessage && <div style={styles.successBox}>{successMessage}</div>}
+
               {/* Campo Nombre */}
               <div style={styles.fieldContainer}>
                 <label style={styles.fieldLabel}>Nombre</label>
@@ -155,7 +179,7 @@ const Register = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="ejemplo@email.com"
+                  placeholder="usuario@gmail.com o usuario@qntrol.es"
                   style={styles.inputField}
                   required
                 />
@@ -173,17 +197,21 @@ const Register = () => {
                   required
                 />
 
-                {/* Enlace olvidar contraseña */}
-                <div style={styles.passwordOptions}>
-                  <a href="#" style={styles.forgotLink}>
-                    He olvidado mi contraseña
-                  </a>
+                <div style={styles.passwordPolicy}>
+                  {passwordChecks.map((check) => {
+                    const passed = check.test(password);
+                    return (
+                      <span key={check.label} style={passed ? styles.policyOk : styles.policyPending}>
+                        {passed ? '✓' : '•'} {check.label}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Botón Continuar */}
-              <button type="submit" style={styles.submitButton}>
-                Continuar
+              <button type="submit" style={loading ? { ...styles.submitButton, ...styles.disabledButton } : styles.submitButton} disabled={loading}>
+                {loading ? 'Creando cuenta...' : 'Continuar'}
               </button>
             </form>
 
@@ -364,6 +392,28 @@ const styles = {
     marginBottom: '20px'
   },
 
+  errorBox: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    border: '1px solid rgba(248, 113, 113, 0.35)',
+    color: '#FCA5A5',
+    borderRadius: '12px',
+    padding: '12px 14px',
+    fontSize: '13px',
+    fontWeight: '600',
+    marginBottom: '18px'
+  },
+
+  successBox: {
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    border: '1px solid rgba(74, 222, 128, 0.35)',
+    color: '#BBF7D0',
+    borderRadius: '12px',
+    padding: '12px 14px',
+    fontSize: '13px',
+    fontWeight: '600',
+    marginBottom: '18px'
+  },
+
   fieldLabel: {
     display: 'block',
     fontSize: '14px',
@@ -390,6 +440,25 @@ const styles = {
     marginTop: '8px'
   },
 
+  passwordPolicy: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: '6px 10px',
+    marginTop: '10px'
+  },
+
+  policyOk: {
+    color: '#9EE6B8',
+    fontSize: '12px',
+    fontWeight: '600'
+  },
+
+  policyPending: {
+    color: '#9CA3AF',
+    fontSize: '12px',
+    fontWeight: '500'
+  },
+
   forgotLink: {
     fontSize: '13px',
     color: '#973685',
@@ -409,6 +478,11 @@ const styles = {
     cursor: 'pointer',
     marginTop: '10px',
     marginBottom: '20px'
+  },
+
+  disabledButton: {
+    opacity: 0.65,
+    cursor: 'not-allowed'
   },
 
   // Separador "O registrate con"
