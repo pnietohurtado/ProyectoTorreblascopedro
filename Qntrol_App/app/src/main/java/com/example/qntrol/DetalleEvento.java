@@ -198,9 +198,10 @@ public class DetalleEvento extends AppCompatActivity {
             if (personas != null) {
                 for (int i = 0; i < personas.size(); i++) {
                     Map<String, Object> p = personas.get(i);
-                    // Mostramos a todos los integrantes de la lista, incluyendo al titular (Opción A)
-                    // de esta forma todos son checkeables manualmente.
-                    inflarInvitado(p, i, doc.getId(), layoutCardGuestsContainer);
+                    // Ocultamos al titular (alumno principal) de la lista de invitados
+                    if (!isTitularPersona(p, i, personas.size(), nombreTitular, doc.getId(), doc.getString("id"))) {
+                        inflarInvitado(p, i, doc.getId(), layoutCardGuestsContainer);
+                    }
                 }
             }
 
@@ -331,7 +332,32 @@ public class DetalleEvento extends AppCompatActivity {
         return null;
     }
 
-    private boolean isTitularPersona(Map<String, Object> persona, int index, int totalPersonas, String nombreTitular) {
+    private boolean isTitularPersona(Map<String, Object> persona, int index, int totalPersonas, String nombreTitular, String docId, String docDbId) {
+        if (persona == null) return false;
+
+        String personaQr = null;
+        String[] qrKeys = {"qrCode", "id", "QR", "qr"};
+        for (String key : qrKeys) {
+            Object val = persona.get(key);
+            if (val != null && !String.valueOf(val).trim().isEmpty()) {
+                personaQr = String.valueOf(val).trim();
+                break;
+            }
+        }
+
+        // Si tenemos el QR de la persona y el ID del documento, comparamos por ID directamente
+        if (personaQr != null) {
+            if (docId != null && !docId.trim().isEmpty() && personaQr.equalsIgnoreCase(docId.trim())) {
+                return true;
+            }
+            if (docDbId != null && !docDbId.trim().isEmpty() && personaQr.equalsIgnoreCase(docDbId.trim())) {
+                return true;
+            }
+            // Si el QR existe pero no coincide con el del documento, son personas distintas (no es el titular)
+            return false;
+        }
+
+        // Fallback por nombre solo si no pudimos comparar por ID/QR
         if (totalPersonas <= 1 || index != 0 || TextUtils.isEmpty(nombreTitular)) {
             return false;
         }
