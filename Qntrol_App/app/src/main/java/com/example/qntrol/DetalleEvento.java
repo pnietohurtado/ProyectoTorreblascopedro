@@ -39,11 +39,11 @@ import java.util.Map;
 public class DetalleEvento extends AppCompatActivity {
 
     private MaterialButton botonQR;
-    private TextView tvTitle, tvAforo, tvMainName;
+    private TextView tvTitle, tvAforo;
     private EditText etSearch;
-    private View layoutEstadoAlumno, layoutEstadoVacio;
+    private View nsvSearchResults, layoutEstadoVacio;
     private ImageView ivBack;
-    private LinearLayout layoutGuestsContainer;
+    private LinearLayout layoutSearchResultsContainer;
     
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
@@ -77,10 +77,9 @@ public class DetalleEvento extends AppCompatActivity {
         etSearch = findViewById(R.id.etSearch);
         ivBack = findViewById(R.id.ivBack);
         
-        layoutEstadoAlumno = findViewById(R.id.layoutEstadoAlumno);
+        nsvSearchResults = findViewById(R.id.nsvSearchResults);
         layoutEstadoVacio = findViewById(R.id.layoutEstadoVacio);
-        tvMainName = findViewById(R.id.tvMainName);
-        layoutGuestsContainer = findViewById(R.id.layoutGuestsContainer);
+        layoutSearchResultsContainer = findViewById(R.id.layoutSearchResultsContainer);
 
         // Intent data
         eventName = getIntent().getStringExtra("EVENT_NAME");
@@ -147,7 +146,7 @@ public class DetalleEvento extends AppCompatActivity {
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 String query = s.toString().trim();
                 if (query.isEmpty()) {
-                    layoutEstadoAlumno.setVisibility(View.GONE);
+                    nsvSearchResults.setVisibility(View.GONE);
                     layoutEstadoVacio.setVisibility(View.VISIBLE);
                 } else {
                     buscarAlumnoLocal(query);
@@ -160,48 +159,57 @@ public class DetalleEvento extends AppCompatActivity {
     }
 
     private void buscarAlumnoLocal(String query) {
-        DocumentSnapshot matchedDoc = null;
+        List<DocumentSnapshot> matchedDocs = new ArrayList<>();
         for (DocumentSnapshot doc : allGuestsList) {
             if (matchesGuestSearch(doc, query)) {
-                matchedDoc = doc;
-                break;
+                matchedDocs.add(doc);
             }
         }
 
-        if (matchedDoc != null) {
-            mostrarAlumno(matchedDoc);
+        if (!matchedDocs.isEmpty()) {
+            mostrarAlumnos(matchedDocs);
         } else {
-            layoutEstadoAlumno.setVisibility(View.GONE);
+            nsvSearchResults.setVisibility(View.GONE);
             layoutEstadoVacio.setVisibility(View.VISIBLE);
         }
     }
 
     @SuppressWarnings("unchecked")
-    private void mostrarAlumno(DocumentSnapshot doc) {
-        layoutEstadoAlumno.setVisibility(View.VISIBLE);
+    private void mostrarAlumnos(List<DocumentSnapshot> matchedDocs) {
+        nsvSearchResults.setVisibility(View.VISIBLE);
         layoutEstadoVacio.setVisibility(View.GONE);
 
-        String nombreTitular = getGuestOwnerName(doc);
-        if (nombreTitular == null) nombreTitular = getString(R.string.student_fallback_name);
-        tvMainName.setText(nombreTitular);
+        // Limpiar tarjetas de búsqueda anteriores
+        layoutSearchResultsContainer.removeAllViews();
 
-        List<Map<String, Object>> personas = (List<Map<String, Object>>) doc.get("personas");
-        
-        // Clear previous guests
-        layoutGuestsContainer.removeAllViews();
+        for (DocumentSnapshot doc : matchedDocs) {
+            // Inflar la tarjeta del alumno
+            View cardView = LayoutInflater.from(this).inflate(R.layout.item_student_card, layoutSearchResultsContainer, false);
+            
+            TextView tvCardMainName = cardView.findViewById(R.id.tvMainName);
+            LinearLayout layoutCardGuestsContainer = cardView.findViewById(R.id.layoutGuestsContainer);
 
-        if (personas != null) {
-            for (int i = 0; i < personas.size(); i++) {
-                Map<String, Object> p = personas.get(i);
-                if (!isTitularPersona(p, i, personas.size(), nombreTitular)) {
-                    inflarInvitado(p, i, doc.getId());
+            String nombreTitular = getGuestOwnerName(doc);
+            if (nombreTitular == null) nombreTitular = getString(R.string.student_fallback_name);
+            tvCardMainName.setText(nombreTitular);
+
+            List<Map<String, Object>> personas = (List<Map<String, Object>>) doc.get("personas");
+
+            if (personas != null) {
+                for (int i = 0; i < personas.size(); i++) {
+                    Map<String, Object> p = personas.get(i);
+                    // Mostramos a todos los integrantes de la lista, incluyendo al titular (Opción A)
+                    // de esta forma todos son checkeables manualmente.
+                    inflarInvitado(p, i, doc.getId(), layoutCardGuestsContainer);
                 }
             }
+
+            layoutSearchResultsContainer.addView(cardView);
         }
     }
 
-    private void inflarInvitado(Map<String, Object> p, int originalIndex, String docId) {
-        View guestView = LayoutInflater.from(this).inflate(R.layout.item_guest, layoutGuestsContainer, false);
+    private void inflarInvitado(Map<String, Object> p, int originalIndex, String docId, LinearLayout container) {
+        View guestView = LayoutInflater.from(this).inflate(R.layout.item_guest, container, false);
         
         TextView tvName = guestView.findViewById(R.id.tvGuestName);
         TextView tvTime = guestView.findViewById(R.id.tvGuestTime);
@@ -217,7 +225,7 @@ public class DetalleEvento extends AppCompatActivity {
 
         cb.setOnCheckedChangeListener((buttonView, isChecked) -> updateAsistenciaManual(docId, originalIndex, isChecked));
         
-        layoutGuestsContainer.addView(guestView);
+        container.addView(guestView);
     }
 
     @SuppressWarnings("unchecked")
