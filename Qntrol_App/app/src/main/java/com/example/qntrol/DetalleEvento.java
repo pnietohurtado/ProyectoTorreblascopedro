@@ -196,11 +196,13 @@ public class DetalleEvento extends AppCompatActivity {
             List<Map<String, Object>> personas = (List<Map<String, Object>>) doc.get("personas");
 
             if (personas != null) {
+                int companionNumber = 1;
                 for (int i = 0; i < personas.size(); i++) {
                     Map<String, Object> p = personas.get(i);
                     // Ocultamos al titular (alumno principal) de la lista de invitados
                     if (!isTitularPersona(p, i, personas.size(), nombreTitular, doc.getId(), doc.getString("id"))) {
-                        inflarInvitado(p, i, doc.getId(), layoutCardGuestsContainer);
+                        inflarInvitado(p, i, doc.getId(), layoutCardGuestsContainer, companionNumber);
+                        companionNumber++;
                     }
                 }
             }
@@ -209,18 +211,17 @@ public class DetalleEvento extends AppCompatActivity {
         }
     }
 
-    private void inflarInvitado(Map<String, Object> p, int originalIndex, String docId, LinearLayout container) {
+    private void inflarInvitado(Map<String, Object> p, int originalIndex, String docId, LinearLayout container, int companionNumber) {
         View guestView = LayoutInflater.from(this).inflate(R.layout.item_guest, container, false);
         
         TextView tvName = guestView.findViewById(R.id.tvGuestName);
         TextView tvTime = guestView.findViewById(R.id.tvGuestTime);
         CheckBox cb = guestView.findViewById(R.id.cbGuest);
 
-        String name = getPersonaName(p);
         Boolean esc = (Boolean) p.get("escaneado");
         Timestamp time = (Timestamp) p.get("fechaEscaneo");
 
-        tvName.setText(!TextUtils.isEmpty(name) ? name : getString(R.string.generic_guest_with_number, originalIndex + 1));
+        tvName.setText(getString(R.string.generic_companion_with_number, companionNumber));
         cb.setChecked(esc != null && esc);
         tvTime.setText(time != null ? dateFormat.format(time.toDate()) : getString(R.string.guest_not_registered));
 
