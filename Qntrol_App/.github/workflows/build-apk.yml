@@ -5,6 +5,10 @@ on:
     branches:
       - main
       - master
+  pull_request:
+    branches:
+      - main
+      - master
   workflow_dispatch: # Permite ejecutar la compilación de forma manual desde la web de GitHub
 
 jobs:
