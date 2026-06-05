@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <color name="surface_color">#F5F5F5</color>
+    <color name="card_surface_color">#FFFFFF</color>
+    <color name="search_background">#E0E0E0</color>
+    <color name="text_primary">#2B2738</color>
+    <color name="text_secondary">#757575</color>
+    <color name="stroke_color">#1A000000</color>
+    <color name="boton">#973685</color>
+    <color name="boton_oscuro">#702863</color>
+    <color name="rosa_transparente">#33973685</color>
+    
+    <!-- Theme Specific Accents -->
+    <color name="accent_stroke">@color/boton</color>
+    <color name="accent_surface">@color/rosa_transparente</color>
+    <color name="google_btn_stroke">@color/boton_oscuro</color>
+    <color name="card_gradient_start">#80973685</color>
+    <color name="card_gradient_center">#30973685</color>
+    <color name="error_red_dark">#B71C1C</color>
+    <color name="attendance_accent">@color/boton</color>
+</resources>
