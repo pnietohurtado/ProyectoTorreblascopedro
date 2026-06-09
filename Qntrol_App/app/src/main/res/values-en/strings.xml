@@ -72,6 +72,9 @@
     <string name="guest_name_placeholder">Guest Name</string>
     <string name="guest_arrow_content_description">Arrow</string>
     <string name="guest_not_registered">Not registered</string>
+    <string name="guest_seat_location_format">%1$s · Row %2$s · Seat %3$s</string>
+    <string name="guest_seat_fallback_format">Location: %1$s</string>
+    <string name="guest_seat_not_assigned">No seat assigned</string>
     <string name="camera_permission_denied">Camera permission denied</string>
     <string name="events_load_error">Error loading events</string>
     <string name="event_id_missing_error">Error: event ID not found</string>

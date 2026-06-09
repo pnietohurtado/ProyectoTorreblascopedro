@@ -200,7 +200,7 @@ public class DetalleEvento extends AppCompatActivity {
                     Map<String, Object> p = personas.get(i);
                     // Mostramos a todos los integrantes de la lista, incluyendo al titular (Opción A)
                     // de esta forma todos son checkeables manualmente.
-                    inflarInvitado(p, i, doc.getId(), layoutCardGuestsContainer);
+                    inflarInvitado(p, i, doc, layoutCardGuestsContainer);
                 }
             }
 
@@ -208,10 +208,11 @@ public class DetalleEvento extends AppCompatActivity {
         }
     }
 
-    private void inflarInvitado(Map<String, Object> p, int originalIndex, String docId, LinearLayout container) {
+    private void inflarInvitado(Map<String, Object> p, int originalIndex, DocumentSnapshot doc, LinearLayout container) {
         View guestView = LayoutInflater.from(this).inflate(R.layout.item_guest, container, false);
         
         TextView tvName = guestView.findViewById(R.id.tvGuestName);
+        TextView tvSeat = guestView.findViewById(R.id.tvGuestSeat);
         TextView tvTime = guestView.findViewById(R.id.tvGuestTime);
         CheckBox cb = guestView.findViewById(R.id.cbGuest);
 
@@ -220,12 +221,76 @@ public class DetalleEvento extends AppCompatActivity {
         Timestamp time = (Timestamp) p.get("fechaEscaneo");
 
         tvName.setText(!TextUtils.isEmpty(name) ? name : getString(R.string.generic_guest_with_number, originalIndex + 1));
+        tvSeat.setText(getGuestSeatLocation(p, doc));
         cb.setChecked(esc != null && esc);
         tvTime.setText(time != null ? dateFormat.format(time.toDate()) : getString(R.string.guest_not_registered));
 
-        cb.setOnCheckedChangeListener((buttonView, isChecked) -> updateAsistenciaManual(docId, originalIndex, isChecked));
+        cb.setOnCheckedChangeListener((buttonView, isChecked) -> updateAsistenciaManual(doc.getId(), originalIndex, isChecked));
         
         container.addView(guestView);
+    }
+
+    @SuppressWarnings("unchecked")
+    private String getGuestSeatLocation(Map<String, Object> persona, DocumentSnapshot doc) {
+        Map<String, Object> seatDetail = getMapValue(persona, "asientoDetalle");
+        if (seatDetail == null) {
+            Object rootDetail = doc.get("asientoDetalle");
+            if (rootDetail instanceof Map) {
+                seatDetail = (Map<String, Object>) rootDetail;
+            }
+        }
+
+        if (seatDetail != null) {
+            String section = getMapString(seatDetail, "sectionName", "level", "name");
+            String row = getMapString(seatDetail, "row", "fila");
+            String number = getMapString(seatDetail, "number", "asiento");
+
+            if (!TextUtils.isEmpty(section) && !TextUtils.isEmpty(row) && !TextUtils.isEmpty(number)) {
+                return getString(R.string.guest_seat_location_format, section, row, number);
+            }
+            if (!TextUtils.isEmpty(row) && !TextUtils.isEmpty(number)) {
+                return getString(R.string.feedback_row_seat_format, row, number);
+            }
+            if (!TextUtils.isEmpty(section)) {
+                return section;
+            }
+        }
+
+        String seat = getMapString(persona, "asiento", "Asiento");
+        if (TextUtils.isEmpty(seat)) {
+            seat = getDocumentString(doc, "asiento", "Asiento");
+        }
+        return !TextUtils.isEmpty(seat)
+                ? getString(R.string.guest_seat_fallback_format, seat)
+                : getString(R.string.guest_seat_not_assigned);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getMapValue(Map<String, Object> source, String key) {
+        if (source == null) return null;
+        Object value = source.get(key);
+        return value instanceof Map ? (Map<String, Object>) value : null;
+    }
+
+    private String getMapString(Map<String, Object> source, String... keys) {
+        if (source == null) return null;
+        for (String key : keys) {
+            Object value = source.get(key);
+            if (value != null && !TextUtils.isEmpty(String.valueOf(value))) {
+                return String.valueOf(value).trim();
+            }
+        }
+        return null;
+    }
+
+    private String getDocumentString(DocumentSnapshot doc, String... keys) {
+        for (String key : keys) {
+            Object value = doc.get(key);
+            if (value != null && !TextUtils.isEmpty(String.valueOf(value))) {
+                return String.valueOf(value).trim();
+            }
+        }
+        return null;
     }
 
     @SuppressWarnings("unchecked")

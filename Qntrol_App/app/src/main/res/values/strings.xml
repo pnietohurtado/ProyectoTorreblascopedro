@@ -72,6 +72,9 @@
     <string name="guest_name_placeholder">Nombre Invitado</string>
     <string name="guest_arrow_content_description">Flecha</string>
     <string name="guest_not_registered">No registrado</string>
+    <string name="guest_seat_location_format">%1$s · Fila %2$s · Asiento %3$s</string>
+    <string name="guest_seat_fallback_format">Ubicación: %1$s</string>
+    <string name="guest_seat_not_assigned">Sin asiento asignado</string>
     <string name="camera_permission_denied">Permiso de cámara denegado</string>
     <string name="events_load_error">Error al cargar eventos</string>
     <string name="event_id_missing_error">Error: ID de evento no encontrado</string>
