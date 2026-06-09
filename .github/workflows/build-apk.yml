@@ -20,6 +20,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # Como el proyecto de Android está dentro de Qntrol_App, le decimos a las acciones
+      # que busquen los archivos allí usando working-directory
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -29,12 +31,14 @@ jobs:
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
+        working-directory: Qntrol_App
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug
+        working-directory: Qntrol_App
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: QntrolApp-Debug-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: Qntrol_App/app/build/outputs/apk/debug/app-debug.apk

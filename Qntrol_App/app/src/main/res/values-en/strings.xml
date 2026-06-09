@@ -30,6 +30,7 @@
     <string name="log_source_qr">QR</string>
     <string name="log_source_check">Check</string>
     <string name="generic_guest_with_number">Guest %1$d</string>
+    <string name="generic_companion_with_number">Companion %1$d</string>
     <string name="lang_spanish">Spanish</string>
     <string name="lang_english">English</string>
     <string name="privacy_policy_title">Privacy Policy</string>

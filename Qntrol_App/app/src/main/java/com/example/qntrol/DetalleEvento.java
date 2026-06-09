@@ -196,11 +196,14 @@ public class DetalleEvento extends AppCompatActivity {
             List<Map<String, Object>> personas = (List<Map<String, Object>>) doc.get("personas");
 
             if (personas != null) {
+                int companionNumber = 1;
                 for (int i = 0; i < personas.size(); i++) {
                     Map<String, Object> p = personas.get(i);
-                    // Mostramos a todos los integrantes de la lista, incluyendo al titular (Opción A)
-                    // de esta forma todos son checkeables manualmente.
-                    inflarInvitado(p, i, doc, layoutCardGuestsContainer);
+                    // Ocultamos al titular (alumno principal) de la lista de invitados
+                    if (!isTitularPersona(p, i, personas.size(), nombreTitular, doc.getId(), doc.getString("id"))) {
+                        inflarInvitado(p, i, doc, layoutCardGuestsContainer, companionNumber);
+                        companionNumber++;
+                    }
                 }
             }
 
@@ -208,7 +211,7 @@ public class DetalleEvento extends AppCompatActivity {
         }
     }
 
-    private void inflarInvitado(Map<String, Object> p, int originalIndex, DocumentSnapshot doc, LinearLayout container) {
+    private void inflarInvitado(Map<String, Object> p, int originalIndex, DocumentSnapshot doc, LinearLayout container, int companionNumber) {
         View guestView = LayoutInflater.from(this).inflate(R.layout.item_guest, container, false);
         
         TextView tvName = guestView.findViewById(R.id.tvGuestName);
@@ -216,11 +219,10 @@ public class DetalleEvento extends AppCompatActivity {
         TextView tvTime = guestView.findViewById(R.id.tvGuestTime);
         CheckBox cb = guestView.findViewById(R.id.cbGuest);
 
-        String name = getPersonaName(p);
         Boolean esc = (Boolean) p.get("escaneado");
         Timestamp time = (Timestamp) p.get("fechaEscaneo");
 
-        tvName.setText(!TextUtils.isEmpty(name) ? name : getString(R.string.generic_guest_with_number, originalIndex + 1));
+        tvName.setText(getString(R.string.generic_companion_with_number, companionNumber));
         tvSeat.setText(getGuestSeatLocation(p, doc));
         cb.setChecked(esc != null && esc);
         tvTime.setText(time != null ? dateFormat.format(time.toDate()) : getString(R.string.guest_not_registered));
@@ -396,7 +398,32 @@ public class DetalleEvento extends AppCompatActivity {
         return null;
     }
 
-    private boolean isTitularPersona(Map<String, Object> persona, int index, int totalPersonas, String nombreTitular) {
+    private boolean isTitularPersona(Map<String, Object> persona, int index, int totalPersonas, String nombreTitular, String docId, String docDbId) {
+        if (persona == null) return false;
+
+        String personaQr = null;
+        String[] qrKeys = {"qrCode", "id", "QR", "qr"};
+        for (String key : qrKeys) {
+            Object val = persona.get(key);
+            if (val != null && !String.valueOf(val).trim().isEmpty()) {
+                personaQr = String.valueOf(val).trim();
+                break;
+            }
+        }
+
+        // Si tenemos el QR de la persona y el ID del documento, comparamos por ID directamente
+        if (personaQr != null) {
+            if (docId != null && !docId.trim().isEmpty() && personaQr.equalsIgnoreCase(docId.trim())) {
+                return true;
+            }
+            if (docDbId != null && !docDbId.trim().isEmpty() && personaQr.equalsIgnoreCase(docDbId.trim())) {
+                return true;
+            }
+            // Si el QR existe pero no coincide con el del documento, son personas distintas (no es el titular)
+            return false;
+        }
+
+        // Fallback por nombre solo si no pudimos comparar por ID/QR
         if (totalPersonas <= 1 || index != 0 || TextUtils.isEmpty(nombreTitular)) {
             return false;
         }
