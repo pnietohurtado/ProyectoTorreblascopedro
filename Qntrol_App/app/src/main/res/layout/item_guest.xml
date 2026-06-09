@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:paddingTop="12dp"
-    android:paddingBottom="4dp">
+    android:paddingBottom="8dp">
 
     <ImageView
         android:id="@+id/ivGuestArrow"
@@ -30,16 +30,31 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
+        android:id="@+id/tvGuestSeat"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:fontFamily="@font/inter_medium"
+        android:lineSpacingExtra="2dp"
+        android:text="@string/guest_seat_not_assigned"
+        android:textColor="@color/attendance_accent"
+        android:textSize="12sp"
+        app:layout_constraintEnd_toStartOf="@+id/cbGuest"
+        app:layout_constraintStart_toStartOf="@+id/tvGuestName"
+        app:layout_constraintTop_toBottomOf="@+id/tvGuestName" />
+
+    <TextView
         android:id="@+id/tvGuestTime"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
         android:fontFamily="@font/inter"
         android:text="@string/guest_not_registered"
         android:textColor="?android:attr/textColorSecondary"
         android:textSize="11sp"
+        app:layout_constraintEnd_toStartOf="@+id/cbGuest"
         app:layout_constraintStart_toStartOf="@+id/tvGuestName"
-        app:layout_constraintTop_toBottomOf="@+id/tvGuestName" />
+        app:layout_constraintTop_toBottomOf="@+id/tvGuestSeat" />
 
     <CheckBox
         android:id="@+id/cbGuest"
@@ -47,7 +62,6 @@
         android:layout_height="24dp"
         android:background="@drawable/custom_checkbox"
         android:button="@null"
-        app:layout_constraintBottom_toBottomOf="@+id/tvGuestTime"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="@+id/tvGuestName" />
 
